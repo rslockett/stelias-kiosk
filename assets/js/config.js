@@ -67,7 +67,40 @@ window.KIOSK_CONFIG = {
 
 
   /* --------------------------------------------------------------------------
-     3. TIMING
+     3. SIGN-UPS  (Coffee Hour host, Holy Bread)
+     --------------------------------------------------------------------------
+     Two more tabs in the same Sheet, each published to the web exactly like
+     the Announcements tab (File -> Share -> Publish to web -> that tab ->
+     CSV). One row per person who has signed up: Date, Name, Signed Up At.
+     A Sunday with no row for it is simply open.
+
+     signupUrl is what people scan on the kiosk and land on: signup.html on
+     this same site, with ?type=coffee or ?type=bread. If you don't want the
+     GitHub Pages address showing up in print or on the QR code, put a short
+     redirect link here instead (e.g. from tinyurl.com) that points at it —
+     the kiosk only ever displays whatever URL is entered here.
+
+     Leave a pair blank to leave that sign-up off the TV entirely.
+  -------------------------------------------------------------------------- */
+
+  coffeeHour: {
+    csvUrl: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRKHWTgqqt76qjc_U3VU9xdNLUJpDKjnnl2o_Hm7g85vC_Zy8-Hhiir28naTV25GW98_PWvjHF26hj5/pub?gid=834317076&single=true&output=csv',
+    signupUrl: '',
+  },
+
+  holyBread: {
+    csvUrl: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRKHWTgqqt76qjc_U3VU9xdNLUJpDKjnnl2o_Hm7g85vC_Zy8-Hhiir28naTV25GW98_PWvjHF26hj5/pub?gid=637926506&single=true&output=csv',
+    signupUrl: '',
+  },
+
+  // How many upcoming Sundays to show, both on the TV and on signup.html.
+  // (The kiosk only ever shows the first 6 of these, however high this is
+  // set — see KIOSK_ROW_CAP in signup-data.js.)
+  signupWeeksAhead: 6,
+
+
+  /* --------------------------------------------------------------------------
+     4. TIMING
   -------------------------------------------------------------------------- */
 
   // How long each announcement stays on screen, in seconds.
@@ -88,7 +121,7 @@ window.KIOSK_CONFIG = {
 
 
   /* --------------------------------------------------------------------------
-     4. WHAT THE SCREEN SAYS
+     5. WHAT THE SCREEN SAYS
   -------------------------------------------------------------------------- */
 
   churchName: 'St. Elias Orthodox Church',
@@ -102,7 +135,7 @@ window.KIOSK_CONFIG = {
 
 
   /* --------------------------------------------------------------------------
-     5. FINE TUNING  (you can almost certainly ignore this section)
+     6. FINE TUNING  (you can almost certainly ignore this section)
   -------------------------------------------------------------------------- */
 
   // Text auto-shrinks so every announcement fits on ONE slide and never runs

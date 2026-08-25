@@ -354,6 +354,80 @@ body::after {
   box-shadow: 0 1.2vh 3vh rgba(54, 46, 48, 0.16);
 }
 
+/* --------------------------------------------------------------- signup -- */
+
+.slide--signup { grid-template-columns: 1fr auto; }
+/* Sized directly in vh rather than through the shrink-to-fit routine — a
+   fixed list of Sundays doesn't need the binary search prose gets, and
+   signupWeeksAhead keeps the row count, and so this size, sane. */
+.slide--signup .slide__fit { font-size: 4.4vh; text-align: left; }
+.slide--signup .slide__title,
+.slide--signup .slide__rule { text-align: center; margin-left: auto; margin-right: auto; }
+
+.signup__subtitle {
+  margin: 0 0 0.7em;
+  text-align: center;
+  font-style: italic;
+  font-size: 0.62em;
+  color: var(--ink-soft);
+}
+
+.signup__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+}
+
+.signup__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1em;
+  padding: 0.42em 0.7em;
+  border-radius: 4px;
+  font-size: 0.62em;
+}
+
+.signup__row.is-filled { background: rgba(213, 146, 11, 0.08); }
+.signup__row.is-open   { background: rgba(11, 57, 84, 0.05); }
+
+.signup__date {
+  font-family: 'Montserrat', system-ui, sans-serif;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.signup__fast {
+  display: inline-block;
+  margin-left: 0.7em;
+  padding: 0.1em 0.6em;
+  border-radius: 999px;
+  background: var(--oxblood);
+  color: var(--gold-pale);
+  font-family: 'Montserrat', system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 0.72em;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+.signup__name {
+  font-style: italic;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+.signup__open {
+  font-family: 'Montserrat', system-ui, sans-serif;
+  font-weight: 600;
+  color: var(--gold-deep);
+  white-space: nowrap;
+}
+
 /* ------------------------------------------------------------------- qr -- */
 
 .slide__qr { justify-self: center; }

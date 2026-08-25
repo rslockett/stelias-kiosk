@@ -1,0 +1,228 @@
+/* ============================================================================
+   signup.css — the sign-up page people land on after scanning a QR code
+   ----------------------------------------------------------------------------
+   Same palette and typefaces as the kiosk and admin.css, because this is the
+   one piece of the whole project a stranger might open on their own phone —
+   it should look like it belongs to the parish, not to a spreadsheet.
+   Unlike the kiosk this scrolls, and it's built for one hand on a phone
+   first; everything still holds up fine on a tablet or laptop.
+   ========================================================================== */
+
+:root {
+  --ink:        #362e30;
+  --ink-soft:   #685e55;
+  --cream:      #fff5f0;
+  --paper:      #ffffff;
+  --gold:       #e3bf77;
+  --gold-deep:  #d5920b;
+  --gold-pale:  #ffeec5;
+  --oxblood:    #621b03;
+  --navy:       #0b3954;
+  --line:       rgba(104, 94, 85, 0.2);
+
+  --good:  #3f7d3f;
+  --good-pale: #eaf4ea;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--cream);
+  color: var(--ink);
+  font-family: 'EB Garamond', Georgia, serif;
+  font-size: 18px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+button, input { font: inherit; color: inherit; }
+
+/* ------------------------------------------------------------- masthead -- */
+
+.masthead {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 1.1rem 1.2rem;
+  background: linear-gradient(135deg, #0e4763 0%, var(--navy) 58%, #072a3d 100%);
+}
+
+.masthead__mark {
+  display: block;
+  width: 1.9rem;
+  height: 2.8rem;
+  flex: none;
+  background-color: var(--gold-pale);
+  -webkit-mask: url('../img/logo-se.png') center / contain no-repeat;
+  mask: url('../img/logo-se.png') center / contain no-repeat;
+}
+
+.masthead__name {
+  margin: 0;
+  font-family: 'Montserrat', system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 0.95rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--gold-pale);
+}
+
+/* ------------------------------------------------------------------ page -- */
+
+.page {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 1.8rem 1.2rem 3rem;
+}
+
+.page__title {
+  margin: 0 0 0.2rem;
+  font-size: 1.9rem;
+  font-weight: 600;
+  color: var(--oxblood);
+}
+
+.page__subtitle {
+  margin: 0 0 1.6rem;
+  color: var(--ink-soft);
+  font-style: italic;
+}
+
+.notice {
+  margin: 0 0 1.4rem;
+  padding: 0.8rem 1rem;
+  border-radius: 6px;
+  background: var(--gold-pale);
+  border: 1px solid rgba(213, 146, 11, 0.35);
+  font-size: 0.95rem;
+}
+.notice[hidden] { display: none; }
+.notice--error { background: #fdeee9; border-color: rgba(161, 45, 18, 0.35); }
+.notice--good  { background: var(--good-pale); border-color: rgba(63, 125, 63, 0.35); }
+
+/* ------------------------------------------------------------------ slot -- */
+
+.slots {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.slot {
+  padding: 0.9rem 1rem;
+  border-radius: 8px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  box-shadow: 0 1px 2px rgba(54, 46, 48, 0.04);
+}
+
+.slot__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.slot__date {
+  margin: 0;
+  font-family: 'Montserrat', system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.slot__fast {
+  display: inline-block;
+  margin-top: 0.3rem;
+  padding: 0.12rem 0.6rem;
+  border-radius: 999px;
+  background: var(--oxblood);
+  color: var(--gold-pale);
+  font-family: 'Montserrat', system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 0.72rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.slot__filled {
+  margin: 0;
+  color: var(--good);
+  font-style: italic;
+  white-space: nowrap;
+}
+
+.slot__button {
+  flex: none;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 6px;
+  background: var(--gold-deep);
+  color: #fff;
+  font-family: 'Montserrat', system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.slot__button:active { background: var(--oxblood); }
+
+.slot__form {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.7rem;
+}
+
+.slot__input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--cream);
+}
+
+.slot__confirm {
+  flex: none;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 6px;
+  background: var(--navy);
+  color: #fff;
+  font-family: 'Montserrat', system-ui, sans-serif;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.slot__cancel {
+  flex: none;
+  padding: 0.5rem 0.7rem;
+  border: none;
+  background: none;
+  color: var(--ink-soft);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.slot__status {
+  margin: 0.6rem 0 0;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+}
+.slot__status[hidden] { display: none; }
+.slot__status.is-error { color: #a12d12; }
+.slot__status.is-good  { color: var(--good); }
+
+.slot[disabled] { opacity: 0.6; pointer-events: none; }
+
+/* ---------------------------------------------------------------- footer -- */
+
+.footer {
+  text-align: center;
+  padding: 1.4rem 1rem 2.4rem;
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+}

@@ -26,6 +26,18 @@
   let timer = null;
   let paused = false;
 
+  // The announcement deck and the two sign-up slides are three independent,
+  // independently-polled sources. Whichever changes, the merged deck is
+  // rebuilt and handed to onDeck exactly as if it were one source — sign-up
+  // slides always ride at the end of the rotation, after the announcements.
+  let announcementSlides = [];
+  let coffeeSlide = null;
+  let breadSlide = null;
+
+  function mergedDeck() {
+    return announcementSlides.concat(coffeeSlide ? [coffeeSlide] : [], breadSlide ? [breadSlide] : []);
+  }
+
   /* ---------------------------------------------------------------- clock -- */
 
   function tickClock() {
@@ -54,6 +66,11 @@
 
   /** Longer announcements get more time on screen. */
   function dwellMs(slide) {
+    if (slide.kind === 'signup') {
+      // No prose to size by — a row per Sunday takes roughly as long to read
+      // as a sentence does.
+      return Math.round((CFG.slideSeconds + slide.entries.length * 1.4) * 1000);
+    }
     const chars = (slide.title || '').length + (slide.body || '').length;
     const extra = (CFG.extraSecondsPerHundredChars || 0) * (chars / 100);
     return Math.round((CFG.slideSeconds + extra) * 1000);
@@ -79,15 +96,19 @@
     el.classList.add('is-entering');
     stage.appendChild(el);
 
-    // Element must be in the document (and laid out) before we can measure it.
-    const main = el.querySelector('.slide__main');
-    const fit = el.querySelector('.slide__fit');
-    const result = global.Slide.fitToBox(main, fit, {
-      minPx: CFG.minBodyPx,
-      maxPx: CFG.maxBodyPx,
-    });
-    if (result.trimmed) {
-      console.warn('[kiosk] too long for one slide, trimmed:', slide.title);
+    // Sign-up slides are a fixed list of rows, sized entirely in CSS —
+    // there's no prose here for the shrink-to-fit binary search to measure.
+    if (slide.kind !== 'signup') {
+      // Element must be in the document (and laid out) before we can measure it.
+      const main = el.querySelector('.slide__main');
+      const fit = el.querySelector('.slide__fit');
+      const result = global.Slide.fitToBox(main, fit, {
+        minPx: CFG.minBodyPx,
+        maxPx: CFG.maxBodyPx,
+      });
+      if (result.trimmed) {
+        console.warn('[kiosk] too long for one slide, trimmed:', slide.title);
+      }
     }
 
     // Force a reflow so the browser treats the class change below as a
@@ -147,9 +168,7 @@
     if (empty) { clearTimeout(timer); }
   }
 
-  function onDeck(slides, meta) {
-    console.log('[kiosk] deck updated:', slides.length, 'slides from', meta.source);
-
+  function applyDeck(slides) {
     if (!currentEl) {
       deck = slides;
       updateEmptyState();
@@ -158,6 +177,18 @@
     }
     // Already showing something — queue it for the next transition.
     pendingDeck = slides;
+  }
+
+  function onDeck(slides, meta) {
+    console.log('[kiosk] deck updated:', slides.length, 'slides from', meta.source);
+    announcementSlides = slides;
+    applyDeck(mergedDeck());
+  }
+
+  function onSignupSlide(kind, slide) {
+    console.log('[kiosk] ' + kind + ' sign-up updated:', slide ? slide.entries.length + ' Sundays' : 'not configured');
+    if (kind === 'coffee') coffeeSlide = slide; else breadSlide = slide;
+    applyDeck(mergedDeck());
   }
 
   function onStatus(status) {
@@ -180,6 +211,8 @@
       else startProgress(dwellMs(deck[index]));
     } else if (e.key === 'r') {
       global.kioskSource && global.kioskSource.refresh();
+      global.coffeeSignupSource && global.coffeeSignupSource.refresh();
+      global.breadSignupSource && global.breadSignupSource.refresh();
     }
   }
 
@@ -219,6 +252,26 @@
     if (document.fonts && document.fonts.ready) {
       try { await document.fonts.ready; } catch (e) { /* proceed anyway */ }
     }
+
+    global.coffeeSignupSource = global.SignupData.createKioskSource({
+      kind: 'coffee',
+      title: 'Coffee Hour Sign-Up',
+      subtitle: 'Hosts needed — sign up for a Sunday',
+      csvUrl: CFG.coffeeHour.csvUrl,
+      qrUrl: CFG.coffeeHour.signupUrl,
+      qrLabel: 'Scan to sign up to host',
+      markFasting: true,
+    }).on(slide => onSignupSlide('coffee', slide)).start();
+
+    global.breadSignupSource = global.SignupData.createKioskSource({
+      kind: 'bread',
+      title: 'Holy Bread Sign-Up',
+      subtitle: 'Bake the prosphora for a Sunday Liturgy',
+      csvUrl: CFG.holyBread.csvUrl,
+      qrUrl: CFG.holyBread.signupUrl,
+      qrLabel: 'Scan to sign up to bake',
+      markFasting: false,
+    }).on(slide => onSignupSlide('bread', slide)).start();
 
     global.kioskSource = global.Deck
       .createDeckSource(CFG.sheetCsvUrl)

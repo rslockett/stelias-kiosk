@@ -110,6 +110,8 @@
    * Layout is chosen from what the row actually has in it.
    */
   function buildSlideEl(slide) {
+    if (slide.kind === 'signup') return buildSignupSlideEl(slide);
+
     const links = parseLinkPairs(slide.link, slide.linkLabel);
     const hasQr = links.length > 0;
     const hasImg = !!slide.image;
@@ -148,6 +150,55 @@
           '<h2 class="slide__title">' + escapeHtml(slide.title) + '</h2>' +
           '<div class="slide__rule" aria-hidden="true"></div>' +
           '<div class="slide__body">' + renderBody(slide.body) + '</div>' +
+        '</div>' +
+      '</div>' +
+      qrHtml;
+
+    return el;
+  }
+
+  /* ------------------------------------------------------------ signup -- */
+
+  /**
+   * Coffee Hour / Holy Bread sign-up slide: a fixed list of upcoming Sundays
+   * rather than prose, so it skips the shrink-to-fit binary search entirely
+   * — the row count is already capped by `signupWeeksAhead` in config.js, and
+   * each row is sized in vh like everything else here.
+   */
+  function buildSignupSlideEl(slide) {
+    const el = document.createElement('article');
+    el.className = 'slide slide--signup';
+
+    const rowsHtml = slide.entries.map(entry => {
+      const fastBadge = entry.fastName
+        ? '<span class="signup__fast">' + escapeHtml(entry.fastName) + '</span>'
+        : '';
+      const status = entry.filled
+        ? '<span class="signup__name">' + escapeHtml(entry.name) + '</span>'
+        : '<span class="signup__open">Open — scan to sign up</span>';
+
+      return (
+        '<li class="signup__row' + (entry.filled ? ' is-filled' : ' is-open') + '">' +
+          '<span class="signup__date">' + escapeHtml(entry.label) + fastBadge + '</span>' +
+          status +
+        '</li>'
+      );
+    }).join('');
+
+    const qrHtml = slide.qrUrl
+      ? '<aside class="slide__qr"><div class="qr">' +
+          '<div class="qr__frame">' + makeQrSvg(slide.qrUrl) + '</div>' +
+          '<p class="qr__label">' + escapeHtml(slide.qrLabel || CFG.defaultQrLabel) + '</p>' +
+        '</div></aside>'
+      : '';
+
+    el.innerHTML =
+      '<div class="slide__main">' +
+        '<div class="slide__fit">' +
+          '<h2 class="slide__title">' + escapeHtml(slide.title) + '</h2>' +
+          '<div class="slide__rule" aria-hidden="true"></div>' +
+          (slide.subtitle ? '<p class="signup__subtitle">' + escapeHtml(slide.subtitle) + '</p>' : '') +
+          '<ul class="signup__list">' + rowsHtml + '</ul>' +
         '</div>' +
       '</div>' +
       qrHtml;
@@ -282,6 +333,7 @@
 
   global.Slide = {
     buildSlideEl,
+    buildSignupSlideEl,
     fitToBox,
     makeQrSvg,
     qrDensity,

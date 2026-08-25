@@ -291,6 +291,77 @@ Standing items (service times, giving, welcome) just get an End date years out.
 
 ---
 
+## Coffee Hour and Holy Bread sign-ups
+
+Two more slides on the TV, built the same way as everything else here: a
+Sheet tab is the one true copy, a page reads it, and a QR code is how people
+get there. There's no separate service to pay for or manage — the sign-up
+page (`signup.html`) is part of this same site, and it writes back to the
+Sheet through the same Apps Script that "Make it live" already uses.
+
+Each is a tab in the Sheet — **Coffee Hour** and **Holy Bread** — with three
+columns: **Date**, **Name**, **Signed Up At**. One row per person who has
+claimed a Sunday. A Sunday with no row is simply open; nobody has to
+pre-fill weeks nobody has signed up for yet. As with announcements, you can
+edit these tabs by hand instead of through the sign-up page, and the TV will
+still pick it up.
+
+Someone scans the QR code on the TV, lands on `signup.html`, taps an open
+Sunday, types their name, and it appears on the TV within a couple of
+minutes — the same publish lag as everything else in this project, not
+because sign-ups are somehow slower.
+
+### Setting it up
+
+1. In the same Google Sheet the announcements live in, add two tabs named
+   exactly **Coffee Hour** and **Holy Bread**, each with the header row
+   `Date  Name  Signed Up At`.
+2. Publish each one to the web as CSV, the same way you did for
+   Announcements: **File → Share → Publish to web** → choose that tab →
+   **Comma-separated values (.csv)** → **Publish**. Copy each address.
+3. In [`assets/js/config.js`](assets/js/config.js), paste those two
+   addresses into `coffeeHour.csvUrl` and `holyBread.csvUrl`.
+4. Sign-ups only work if **one-click publish** (`sheet/Code.gs`) is already
+   set up — see *One-click publish* above. Unlike announcements, there's no
+   manual fallback for sign-ups; if `publishUrl` is blank, the sign-up page
+   says so plainly rather than pretending to work. If you set up `Code.gs`
+   after it was first deployed, redeploy it (**Deploy → Manage deployments →
+   pencil icon → New version → Deploy**) so the new sign-up handling is live.
+5. Set `coffeeHour.signupUrl` and `holyBread.signupUrl` to the address people
+   should land on — `signup.html?type=coffee` and `signup.html?type=bread`
+   on wherever this site ends up hosted. **This is the one place your site's
+   real address becomes visible to a stranger** — it's what's encoded in the
+   QR code and printed on screen. If you'd rather it not show your GitHub
+   Pages address (or just want something shorter to say out loud), make a
+   free short link at [tinyurl.com](https://tinyurl.com) for each one and
+   put that here instead — the kiosk only ever displays whatever URL is
+   entered in these two fields.
+
+Leave either pair blank to leave that sign-up off the TV entirely.
+
+### Fasting Sundays
+
+The Coffee Hour sign-up marks any Sunday that falls in Great Lent, the
+Apostles' Fast, the Dormition Fast, or the Nativity Fast, so whoever signs up
+knows to bring fasting-friendly food. This is worked out in
+[`assets/js/orthodox-calendar.js`](assets/js/orthodox-calendar.js) from the
+date alone — nothing to maintain, no calendar to update every year. It
+follows the Revised Julian ("New") calendar most Greek Orthodox parishes in
+America use for fixed feasts, the same one sainteliaschurch.org's own
+bulletin follows; Pascha itself is the same date on every Orthodox calendar,
+so only the three fixed-date fasts would need changing for a parish on the
+Old Calendar.
+
+### The TV only shows so much
+
+However many weeks ahead `signupWeeksAhead` in config.js is set to show —
+useful for the sign-up page itself, where people might want to plan further
+out — the television only ever displays the first 6, because a fixed list of
+rows can't shrink to fit the way announcement text does. Six is comfortably
+what the slide has room for. `signup.html` always shows the full list.
+
+---
+
 ## Setting it up the first time
 
 Once, then never again.
@@ -437,6 +508,19 @@ run it again and note the "Desktop session detected" line — then check that
 **A QR code won't scan.**
 It's too long. See "Keep the links short" above.
 
+**Sign-ups say "aren't accepting entries yet".**
+`coffeeHour.csvUrl`/`holyBread.csvUrl` are set, but `publishUrl` in
+config.js is blank — one-click publish (`sheet/Code.gs`) has to be set up
+before people can actually claim a Sunday. See *One-click publish* and
+*Coffee Hour and Holy Bread sign-ups* above.
+
+**Someone signed up but the TV still says Open.**
+Give it a few minutes — the same publish lag "Make it live" has. If it's
+been longer than five, check the Coffee Hour/Holy Bread tab directly; the
+row is either missing (the sign-up didn't save — check `Code.gs` is
+deployed with the latest version) or present but the CSV publish is stale
+(re-publish that tab to the web).
+
 **The edges are cut off.**
 Some TVs crop the picture. Raise `safeAreaPercent` in `config.js`.
 
@@ -454,12 +538,14 @@ Lower it, or set it to 0, if it pulls attention off the announcement.
 ```
 index.html          the screen in the hall
 import.html         the editor — the page everyone opens
+signup.html         Coffee Hour / Holy Bread sign-up — ?type=coffee or ?type=bread
 preview.html        one slide, drawn as the TV draws it; used twice by the
                     editor — once visibly, once hidden off-screen to measure
                     every announcement's true fit
 assets/
   css/kiosk.css     how the screen looks
   css/admin.css     how the editor looks
+  css/signup.css    how signup.html looks
   js/config.js      ← the settings, and the only file you need to edit
   js/csv.js         reads the Sheet's CSV
   js/deck.js        filters by date, polls for changes, caches offline
@@ -470,12 +556,15 @@ assets/
   js/import.js      splits a newsletter into announcements
   js/import-ui.js   the editor itself — list, preview, publishing
   js/preview-frame.js  the inside of the preview window
+  js/orthodox-calendar.js  which Sundays fall in a fasting period
+  js/signup-data.js    turns a sign-up Sheet tab into a list of Sundays
+  js/signup-ui.js   signup.html itself — claiming a Sunday
   js/qrcode.js      QR code generator (Kazuhiko Arase, MIT)
   fonts/            EB Garamond + Montserrat
   img/              parish monogram and cross
 pi/setup-pi.sh      one-time Raspberry Pi setup
-sheet/Code.gs       the Apps Script that receives "Make it live"
-sample/             example announcements, used when no Sheet is configured
+sheet/Code.gs       the Apps Script that receives "Make it live" and sign-ups
+sample/             example announcements and sign-ups, used when nothing is configured
 ```
 
 Plain HTML, CSS and JavaScript — no build step, no frameworks, nothing to

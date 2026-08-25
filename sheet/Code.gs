@@ -24,6 +24,10 @@
  * If you ever change this file, you must deploy a new version for the change
  * to take effect: Deploy -> Manage deployments -> the pencil icon -> New
  * version -> Deploy. Editing the code alone does not update the live URL.
+ *
+ * This same endpoint also receives Coffee Hour and Holy Bread sign-ups from
+ * signup.html — no extra setup needed for that, it uses the deployment
+ * above. See SIGNUP_SHEETS below if you rename either tab.
  * ---------------------------------------------------------------------------
  */
 
@@ -39,9 +43,20 @@ var HEADERS = ['Show', 'Title', 'Body', 'Link', 'Link Label', 'Start', 'End', 'I
 var STAMP_HEADERS = ['Published By', 'Published At'];
 var TOTAL_WIDTH = HEADERS.length + STAMP_HEADERS.length;
 
+// Sign-up tabs: the name here has to match the actual Sheet tab name.
+var SIGNUP_SHEETS = {
+  coffee: 'Coffee Hour',
+  bread: 'Holy Bread',
+};
+var SIGNUP_HEADERS = ['Date', 'Name', 'Signed Up At'];
+
 function doPost(e) {
   try {
     var payload = JSON.parse(e.postData.contents);
+
+    if (payload.action === 'signup') {
+      return handleSignup(payload);
+    }
 
     if (payload.secret !== SHARED_SECRET) {
       return jsonOut({ ok: false, error: 'Wrong secret. Check config.js matches the Apps Script.' });
@@ -66,6 +81,83 @@ function doPost(e) {
   } catch (err) {
     return jsonOut({ ok: false, error: String(err && err.message || err) });
   }
+}
+
+/**
+ * Claim a Coffee Hour or Holy Bread Sunday. No secret is required — anyone
+ * with the sign-up link can use this, the same as filling out a paper sheet
+ * on the narthex table.
+ *
+ * The lock plus the "already taken" check inside it is what stops two people
+ * who tap "Sign up" for the same Sunday within moments of each other from
+ * both landing in the sheet: whoever's request gets the lock first wins, and
+ * the second request is refused. Because this response travels back to the
+ * browser over a no-cors request (see live.js), the browser can't actually
+ * read this JSON — it finds out by re-polling the published sheet and seeing
+ * whether its own name showed up for that date.
+ */
+function handleSignup(payload) {
+  var kind = payload.type;
+  var sheetName = SIGNUP_SHEETS[kind];
+  if (!sheetName) {
+    return jsonOut({ ok: false, error: 'Unknown sign-up type: ' + kind });
+  }
+
+  var date = String(payload.date || '').trim();
+  var name = String(payload.name || '').trim().slice(0, 80);
+  if (!date || !name) {
+    return jsonOut({ ok: false, error: 'A date and a name are both required.' });
+  }
+
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var sheet = SpreadsheetApp.getActive().getSheetByName(sheetName);
+    if (!sheet) {
+      return jsonOut({ ok: false, error: 'Could not find the "' + sheetName + '" tab.' });
+    }
+    ensureSignupHeaders(sheet);
+
+    var wantKey = dateKey(date);
+    var data = sheet.getDataRange().getValues();
+    for (var i = 1; i < data.length; i++) {
+      if (dateKey(data[i][0]) === wantKey && String(data[i][1]).trim() !== '') {
+        return jsonOut({ ok: false, error: 'That Sunday was just taken by someone else.' });
+      }
+    }
+
+    sheet.appendRow([date, name, new Date().toISOString()]);
+    return jsonOut({ ok: true });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * "2026-09-14", or a Date object read back out of a cell (Sheets silently
+ * converts a typed date string to a real Date value) — both become the same
+ * comparable key, the same problem live.js's dateKey() solves on the browser
+ * side of this Sheet.
+ */
+function dateKey(v) {
+  if (Object.prototype.toString.call(v) === '[object Date]' && !isNaN(v)) {
+    return v.getFullYear() + '-' + (v.getMonth() + 1) + '-' + v.getDate();
+  }
+  var s = String(v == null ? '' : v).trim();
+  var m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (m) return m[1] + '-' + (+m[2]) + '-' + (+m[3]);
+  var d = new Date(s);
+  if (!isNaN(d)) return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
+  return s;
+}
+
+function ensureSignupHeaders(sheet) {
+  var firstRow = sheet.getRange(1, 1, 1, SIGNUP_HEADERS.length).getValues()[0];
+  var changed = false;
+  for (var i = 0; i < SIGNUP_HEADERS.length; i++) {
+    if (String(firstRow[i]).trim() === '') { firstRow[i] = SIGNUP_HEADERS[i]; changed = true; }
+  }
+  if (changed) sheet.getRange(1, 1, 1, SIGNUP_HEADERS.length).setValues([firstRow]);
 }
 
 // A GET request is just for checking the deployment is alive and reachable.
