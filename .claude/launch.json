@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "kiosk",
+      "runtimeExecutable": "/usr/local/bin/node",
+      "runtimeArgs": ["/Users/apple/St. Elias Kiosk/.claude/serve.js"],
+      "port": 8422
+    }
+  ]
+}

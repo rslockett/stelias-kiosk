@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>St. Elias — Announcements</title>
+<meta name="description" content="Weekly parish announcements for the coffee hour screen.">
+
+<link rel="stylesheet" href="assets/css/fonts.css">
+<link rel="stylesheet" href="assets/css/kiosk.css">
+<link rel="icon" href="assets/img/logo-se.png">
+</head>
+<body>
+
+  <div class="frame">
+
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand__mark" role="img" aria-label="St. Elias monogram"></span>
+        <div class="brand__text">
+          <p class="brand__name" id="church-name">St. Elias Orthodox Church</p>
+          <p class="brand__tagline" id="tagline">This Week in Our Parish</p>
+        </div>
+      </div>
+
+      <div class="clock" id="clock">
+        <p class="clock__time" id="clock-time"></p>
+        <p class="clock__date" id="clock-date"></p>
+      </div>
+    </header>
+
+    <main class="stage" id="stage" aria-live="polite"></main>
+
+    <!-- Shown only when the Sheet has no announcements to display today. -->
+    <section class="empty" id="empty" hidden>
+      <img class="empty__mark" src="assets/img/cross-byzantine.png" alt="">
+      <h2 class="empty__title">Welcome</h2>
+      <p class="empty__text">
+        There are no announcements posted at the moment.<br>
+        Please enjoy coffee hour.
+      </p>
+    </section>
+
+    <footer class="bottombar">
+      <div class="dots" id="dots"></div>
+      <span class="offline" id="offline" hidden
+            title="Cannot reach the announcements sheet — showing the last saved copy">
+        <span class="offline__dot"></span>showing last saved copy
+      </span>
+    </footer>
+
+    <div class="progress"><span class="progress__bar" id="progress"></span></div>
+  </div>
+
+  <script src="assets/js/config.js"></script>
+  <script src="assets/js/qrcode.js"></script>
+  <script src="assets/js/csv.js"></script>
+  <script src="assets/js/deck.js"></script>
+  <script src="assets/js/slide.js"></script>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>

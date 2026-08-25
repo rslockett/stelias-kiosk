@@ -1,0 +1,24 @@
+Show,Title,Body,Link,Link Label,Start,End,Image,Order
+,Welcome to Coffee Hour,"Please stay, meet someone new, and be at home here.
+
+Visiting for the first time? Introduce yourself to Fr. Andrew — we would love to know you.",,,,,,1
+,Parish Picnic,"Saturday, September 12 at noon in Riverside Park.
+
+Bring a dish to share. Games for the children, and the grill is already spoken for. Tell us you're coming so we know how much to buy.",https://forms.gle/stElias2026,Scan to tell us you're coming,,2026-09-12,,2
+,Feast of the Nativity of the Theotokos,"Great Vespers on Monday, September 8 at 6:00 pm, and Divine Liturgy Tuesday, September 9 at 9:30 am.
+
+A festal meal follows the Liturgy in the hall.",https://forms.gle/stEliasFeast,Scan for the schedule,,2026-09-09,sample/photo2.jpg,3
+,Church School Registration,"Classes resume Sunday, September 7, right after Liturgy.
+
+- Preschool through 12th grade
+- New teachers always welcome
+- Registration closes September 5",https://forms.gle/stEliasSchool,Scan to register,,2026-09-07,,4
+,Choir Rehearsal,"Thursdays at 7:00 pm in the nave. No audition, no experience needed — if you can carry a tune, Nadia will find a place for you.",,,,2026-12-01,,5
+,Food Drive for the Pantry,"Non-perishables in the narthex bin all month. Most needed right now: rice, dried beans, cooking oil, and canned fish.",https://www.sainteliaschurch.org/give/food-pantry-donation?utm_source=newsletter&utm_medium=email&utm_campaign=fall2026,Scan to give online,,2026-10-31,,6
+,"Men's Fellowship, Coffee & Conversation","First Saturday of the month, 8:00 am at the Highland Diner.
+
+Fr. Andrew's line: ""come hungry, leave a little holier."" All men of the parish are welcome, and so are your friends.",,,,2026-12-31,,7
+,A Very Long Announcement That Will Need Trimming,"This row exists to prove the one-slide guarantee holds even when someone pastes far too much text into a single cell. The kiosk first shrinks the type to make it fit, and if it still will not fit at a size anyone could read from across the hall, it trims the text on a word boundary and points people to the bulletin instead of rendering a wall of unreadable grey. Nobody wants to squint at a television from thirty feet away, and an announcement nobody can read is worse than no announcement at all, because it takes up a slot that a legible announcement could have used. The alternative designs are all worse: continuing onto a second slide breaks the promise that one announcement equals one screen, scrolling text is difficult to read and looks cheap, and simply letting the text overflow means the last few lines vanish off the bottom edge where nobody will ever see them. So we shrink, then we trim, and we tell the editor about it in the import tool so the text can be shortened properly before Sunday. This paragraph is now comfortably longer than anything a real parish announcement would ever be, which is exactly the point of including it here.",,,,2027-12-31,,8
+FALSE,Hidden Announcement,This row has Show set to FALSE and must never appear on the screen.,,,,,,9
+,Expired Announcement,This row ended in early August and must never appear on the screen.,,,,2026-08-01,,10
+,Not Yet Announcement,This row does not start until December and must never appear on the screen.,,,2026-12-01,2026-12-31,,11

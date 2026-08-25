@@ -1,0 +1,11 @@
+# Never commit real parish email content.
+# This repo is published to GitHub Pages, so anything here becomes public.
+# Real newsletters contain parishioner names, staff emails and phone numbers.
+*.eml
+sample/_real*
+sample/private*
+**/newsletter-real*
+
+.DS_Store
+.claude/serve.js
+.claude/serve.py

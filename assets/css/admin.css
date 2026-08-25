@@ -1,0 +1,358 @@
+/* ============================================================================
+   admin.css — the weekly import tool
+   ----------------------------------------------------------------------------
+   Same palette and typefaces as the kiosk, but laid out as a working document
+   rather than a display: readable at arm's length, scrollable, obvious buttons.
+   ========================================================================== */
+
+:root {
+  --ink:        #362e30;
+  --ink-soft:   #685e55;
+  --cream:      #fff5f0;
+  --paper:      #ffffff;
+  --gold:       #e3bf77;
+  --gold-deep:  #d5920b;
+  --gold-pale:  #ffeec5;
+  --oxblood:    #621b03;
+  --navy:       #0b3954;
+  --line:       rgba(104, 94, 85, 0.22);
+
+  --good:  #3f7d3f;
+  --tight: #b07d10;
+  --over:  #a12d12;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 0 0 6rem;
+  background: var(--cream);
+  color: var(--ink);
+  font-family: 'EB Garamond', Georgia, serif;
+  font-size: 18px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 1.5rem; }
+
+/* --------------------------------------------------------------- header -- */
+
+.head {
+  border-bottom: 1px solid var(--line);
+  background: var(--paper);
+  padding: 1.4rem 0;
+  margin-bottom: 2.2rem;
+}
+
+.head__inner { display: flex; align-items: center; gap: 1rem; }
+
+.head__mark {
+  width: 30px; height: 46px; flex: none;
+  background-color: var(--oxblood);
+  -webkit-mask: url('../img/logo-se.png') center / contain no-repeat;
+  mask: url('../img/logo-se.png') center / contain no-repeat;
+}
+
+.head__title {
+  margin: 0;
+  font-family: 'Montserrat', system-ui, sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.head__sub { margin: 0.1rem 0 0; font-style: italic; color: var(--gold-deep); }
+
+.head__link {
+  margin-left: auto;
+  font-family: 'Montserrat', system-ui, sans-serif;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--navy);
+}
+
+/* ---------------------------------------------------------------- steps -- */
+
+.step { margin-bottom: 2.6rem; }
+
+.step__head { display: flex; align-items: baseline; gap: 0.7rem; margin-bottom: 0.8rem; }
+
+.step__num {
+  font-family: 'Montserrat', system-ui, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--gold-deep);
+  border: 1px solid var(--gold);
+  border-radius: 999px;
+  padding: 0.18rem 0.6rem;
+  flex: none;
+}
+
+.step__title { margin: 0; font-size: 1.45rem; font-weight: 600; color: var(--oxblood); }
+
+.step__hint { margin: 0 0 1rem; color: var(--ink-soft); }
+
+/* --------------------------------------------------------------- inputs -- */
+
+textarea, input[type="text"] {
+  width: 100%;
+  font-family: 'EB Garamond', Georgia, serif;
+  font-size: 1rem;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0.7rem 0.85rem;
+  line-height: 1.45;
+}
+
+textarea:focus, input[type="text"]:focus {
+  outline: 2px solid var(--gold);
+  outline-offset: 1px;
+  border-color: var(--gold);
+}
+
+#paste { min-height: 240px; resize: vertical; font-size: 0.95rem; }
+
+.row { display: flex; gap: 0.7rem; flex-wrap: wrap; align-items: center; margin-top: 0.9rem; }
+
+/* -------------------------------------------------------------- buttons -- */
+
+.btn {
+  font-family: 'Montserrat', system-ui, sans-serif;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 0.7rem 1.3rem;
+  border-radius: 3px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+
+.btn--primary { background: var(--oxblood); color: #fff; }
+.btn--primary:hover { background: #7a2506; }
+
+.btn--ghost { background: transparent; color: var(--ink-soft); border-color: var(--line); }
+.btn--ghost:hover { border-color: var(--gold-deep); color: var(--gold-deep); }
+
+.btn--sm { padding: 0.38rem 0.7rem; font-size: 0.68rem; }
+
+.btn:disabled { opacity: 0.45; cursor: default; }
+
+/* ---------------------------------------------------------------- cards -- */
+
+.cards { display: flex; flex-direction: column; gap: 1.1rem; }
+
+.card {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--gold);
+  border-radius: 4px;
+  padding: 1.1rem 1.2rem;
+}
+
+.card--over { border-left-color: var(--over); }
+.card--tight { border-left-color: var(--tight); }
+
+.card__top { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.7rem; }
+.card__n {
+  font-family: 'Montserrat', system-ui, sans-serif;
+  font-size: 0.7rem; font-weight: 700; letter-spacing: 0.1em;
+  color: var(--ink-soft);
+}
+.card__tools { margin-left: auto; display: flex; gap: 0.35rem; }
+
+.field { margin-bottom: 0.7rem; }
+
+.field__label {
+  display: block;
+  font-family: 'Montserrat', system-ui, sans-serif;
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin-bottom: 0.28rem;
+}
+
+.field textarea { min-height: 96px; resize: vertical; }
+
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; }
+.grid3 { display: grid; grid-template-columns: 2fr 1.4fr 1fr; gap: 0.7rem; }
+
+@media (max-width: 720px) {
+  .grid2, .grid3 { grid-template-columns: 1fr; }
+}
+
+/* ----------------------------------------------------------- drop zone -- */
+
+.drop {
+  border: 2px dashed var(--gold);
+  border-radius: 6px;
+  background: var(--paper);
+  padding: 2.4rem 1.5rem;
+  text-align: center;
+  transition: background 150ms ease, border-color 150ms ease;
+}
+
+.drop.is-over { background: var(--gold-pale); border-color: var(--gold-deep); }
+
+.drop__title { margin: 0 0 0.5rem; font-size: 1.25rem; color: var(--oxblood); }
+.drop__or { margin: 0; color: var(--ink-soft); }
+
+.fold { margin-top: 1.4rem; }
+
+.fold > summary {
+  cursor: pointer;
+  font-family: 'Montserrat', system-ui, sans-serif;
+  font-size: 0.76rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--navy);
+  padding: 0.4rem 0;
+}
+
+/* --------------------------------------------------------- bulk + ticks -- */
+
+.count {
+  font-family: 'Montserrat', system-ui, sans-serif;
+  font-size: 0.74rem;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+  margin-left: auto;
+}
+
+.tick {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  cursor: pointer;
+  font-family: 'Montserrat', system-ui, sans-serif;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink);
+  user-select: none;
+}
+
+.tick input { width: 17px; height: 17px; accent-color: var(--oxblood); cursor: pointer; }
+
+.tag {
+  font-family: 'Montserrat', system-ui, sans-serif;
+  font-size: 0.62rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.14rem 0.55rem;
+}
+
+.card--off { opacity: 0.52; border-left-color: var(--line); background: #fbf8f6; }
+.card--off .tick { color: var(--ink-soft); }
+
+.linkwarn {
+  margin: 0.5rem 0 0;
+  background: #fdeee9;
+  border-left: 3px solid var(--over);
+  border-radius: 3px;
+  padding: 0.55rem 0.8rem;
+  font-size: 0.92rem;
+  color: #7a2409;
+}
+
+/* ---------------------------------------------------------------- meter -- */
+
+.meter { display: flex; align-items: center; gap: 0.55rem; margin-top: 0.5rem; }
+
+.meter__track {
+  flex: 1;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(104, 94, 85, 0.16);
+  overflow: hidden;
+}
+
+.meter__fill { height: 100%; border-radius: 999px; transition: width 180ms ease, background 180ms ease; }
+
+.meter__note {
+  font-family: 'Montserrat', system-ui, sans-serif;
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.is-good  .meter__fill { background: var(--good); }
+.is-tight .meter__fill { background: var(--tight); }
+.is-over  .meter__fill { background: var(--over); }
+.is-good  .meter__note { color: var(--good); }
+.is-tight .meter__note { color: var(--tight); }
+.is-over  .meter__note { color: var(--over); }
+
+/* ----------------------------------------------------------------- misc -- */
+
+.note {
+  background: var(--gold-pale);
+  border-left: 4px solid var(--gold-deep);
+  border-radius: 3px;
+  padding: 0.9rem 1.1rem;
+  margin: 1rem 0;
+}
+.note p { margin: 0 0 0.4rem; }
+.note p:last-child { margin: 0; }
+
+.note--warn { background: #fdeee9; border-left-color: var(--over); }
+
+/* -------------------------------------------------------- publish status -- */
+
+#publish-status.is-ok  { color: var(--good); }
+#publish-status.is-err { color: var(--over); font-weight: 600; }
+
+.fold .fold { margin-top: 0.9rem; }
+
+.empty-state {
+  text-align: center;
+  color: var(--ink-soft);
+  font-style: italic;
+  padding: 2.4rem 1rem;
+  border: 1px dashed var(--line);
+  border-radius: 4px;
+}
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 2rem;
+  transform: translateX(-50%) translateY(1rem);
+  background: var(--oxblood);
+  color: #fff;
+  font-family: 'Montserrat', system-ui, sans-serif;
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  padding: 0.8rem 1.4rem;
+  border-radius: 3px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 200ms ease, transform 200ms ease;
+  z-index: 50;
+}
+.toast.is-shown { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+.ol { padding-left: 1.2rem; }
+.ol li { margin-bottom: 0.35rem; }
+
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85em;
+  background: rgba(104, 94, 85, 0.1);
+  padding: 0.1em 0.35em;
+  border-radius: 3px;
+}

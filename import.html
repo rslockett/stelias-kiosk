@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>St. Elias — Announcement Importer</title>
+
+<link rel="stylesheet" href="assets/css/fonts.css">
+<link rel="stylesheet" href="assets/css/admin.css">
+<link rel="icon" href="assets/img/logo-se.png">
+</head>
+<body>
+
+<header class="head">
+  <div class="wrap head__inner">
+    <span class="head__mark" role="img" aria-label="St. Elias monogram"></span>
+    <div>
+      <h1 class="head__title">St. Elias — Announcement Importer</h1>
+      <p class="head__sub">Turn the weekly email into slides</p>
+    </div>
+    <a class="head__link" href="index.html" target="_blank" rel="noopener">Open the kiosk ↗</a>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ------------------------------------------------------------ step 1 -->
+  <section class="step">
+    <div class="step__head">
+      <span class="step__num">Step 1</span>
+      <h2 class="step__title">Paste the weekly email</h2>
+    </div>
+    <p class="step__hint">
+      The best way is to save the email as a file and drop it here — that keeps
+      the headings and links intact, so the split comes out much cleaner.
+      In Gmail, open the newsletter, click the <strong>⋮</strong> menu at the top
+      right of the message, and choose <strong>Download message</strong>. You'll
+      get a <code>.eml</code> file.
+    </p>
+
+    <div class="drop" id="drop">
+      <p class="drop__title">Drop the <code>.eml</code> file here</p>
+      <p class="drop__or">or <button class="btn btn--ghost btn--sm" id="pick-btn">choose a file</button></p>
+      <input type="file" id="file" accept=".eml,message/rfc822,text/plain" hidden>
+    </div>
+
+    <details class="fold">
+      <summary>Or paste the text instead</summary>
+      <p class="step__hint" style="margin-top:.8rem">
+        Copying and pasting works too, but Gmail throws away the formatting that
+        marks headings, so you'll have more tidying up to do.
+      </p>
+      <textarea id="paste" placeholder="Paste the whole email here…"></textarea>
+      <div class="row">
+        <button class="btn btn--primary" id="split-btn">Split pasted text</button>
+        <button class="btn btn--ghost" id="sample-btn">Use a sample email</button>
+      </div>
+    </details>
+
+    <div class="row">
+      <button class="btn btn--ghost" id="clear-btn">Clear everything</button>
+    </div>
+
+    <div id="source-note"></div>
+  </section>
+
+  <!-- ------------------------------------------------------------ step 2 -->
+  <section class="step">
+    <div class="step__head">
+      <span class="step__num">Step 2</span>
+      <h2 class="step__title">Check each announcement</h2>
+    </div>
+    <p class="step__hint">
+      A weekly newsletter holds far more than belongs on a coffee hour screen.
+      Untick anything that isn't worth a slide, edit what came out wrong, and
+      watch the length bar — an announcement that runs over gets trimmed on the
+      TV, so it's better to shorten it here.
+    </p>
+
+    <div class="row" id="bulk" hidden>
+      <button class="btn btn--ghost btn--sm" id="all-btn">Tick all</button>
+      <button class="btn btn--ghost btn--sm" id="none-btn">Untick all</button>
+      <span class="count" id="count"></span>
+    </div>
+
+    <div id="cards" class="cards"></div>
+
+    <div class="empty-state" id="cards-empty">
+      Nothing yet. Paste an email above and press “Split into announcements”.
+    </div>
+
+    <div class="row">
+      <button class="btn btn--ghost btn--sm" id="add-btn" hidden>+ Add a blank announcement</button>
+    </div>
+  </section>
+
+  <!-- ------------------------------------------------------------ step 3 -->
+  <section class="step">
+    <div class="step__head">
+      <span class="step__num">Step 3</span>
+      <h2 class="step__title">Put them in the Sheet</h2>
+    </div>
+
+    <!-- Shown only once publishUrl / publishSecret are set in config.js -->
+    <div id="publish-block" hidden>
+      <div class="row">
+        <button class="btn btn--primary" id="publish-btn">Publish to the Sheet</button>
+        <a class="btn btn--ghost" id="open-sheet-link" href="#" target="_blank" rel="noopener" hidden>Open the Sheet ↗</a>
+      </div>
+      <p class="step__hint" id="publish-status" style="margin-top:.6rem"></p>
+
+      <details class="fold">
+        <summary>Copy rows by hand instead</summary>
+        <div class="row" style="margin-top:.8rem">
+          <button class="btn btn--ghost" id="copy-btn" disabled>Copy rows for the Sheet</button>
+          <button class="btn btn--ghost" id="copy-header-btn" disabled>Copy with header row</button>
+        </div>
+      </details>
+    </div>
+
+    <!-- Shown when one-click publish isn't configured -->
+    <div id="copy-block">
+      <div class="row">
+        <button class="btn btn--primary" id="copy-btn-main" disabled>Copy rows for the Sheet</button>
+        <button class="btn btn--ghost" id="copy-header-btn-main" disabled>Copy with header row</button>
+      </div>
+
+      <div class="note">
+        <p><strong>Then:</strong></p>
+        <ol class="ol">
+          <li>Open the announcements Google Sheet.</li>
+          <li>Select every old row under the headers and delete them.</li>
+          <li>Click cell <code>A2</code> and paste.</li>
+        </ol>
+        <p>
+          The TV picks up the change on its own within a few minutes. Nobody needs
+          to touch the Raspberry Pi.
+        </p>
+      </div>
+
+      <div class="note">
+        <p>
+          Want to skip this copy-and-paste step? <code>sheet/Code.gs</code> adds a
+          one-click <strong>Publish</strong> button here instead — a five-minute,
+          one-time setup. See the README for the steps.
+        </p>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script src="assets/js/config.js"></script>
+<script src="assets/js/csv.js"></script>
+<script src="assets/js/deck.js"></script>
+<script src="assets/js/qrcode.js"></script>
+<script src="assets/js/slide.js"></script>
+<script src="assets/js/eml.js"></script>
+<script src="assets/js/import.js"></script>
+<script src="assets/js/import-ui.js"></script>
+</body>
+</html>
