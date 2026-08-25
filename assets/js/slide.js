@@ -204,7 +204,9 @@
     // appending it afterwards makes the slide overflow again by exactly the
     // height of the line we forgot to account for.
     const render = n => {
-      bodyEl.innerHTML = renderBody(cutAtWord(full, n) + '…') + NOTICE;
+      const cut = preferSentenceBoundary(cutAtWord(full, n));
+      const suffix = /[.!?]$/.test(cut) ? '' : '…';
+      bodyEl.innerHTML = renderBody(cut + suffix) + NOTICE;
     };
 
     let lo = 0, hi = full.length, best = -1;
@@ -228,6 +230,19 @@
     const cut = s.slice(0, n);
     const sp = cut.lastIndexOf(' ');
     return (sp > 40 ? cut.slice(0, sp) : cut).replace(/[\s,;:.]+$/, '');
+  }
+
+  /**
+   * When a word-boundary cut still has most of its last sentence intact,
+   * snap back to end on that sentence instead. "One clean thought, then a
+   * pointer to the bulletin" reads far better than a clause chopped
+   * mid-breath — and costs only a little text, which is already headed for
+   * the trim.
+   */
+  function preferSentenceBoundary(cut) {
+    const m = cut.match(/^[\s\S]*[.!?](?=\s|$)/);
+    if (!m || m[0].length < cut.length * 0.55) return cut;
+    return m[0].trim();
   }
 
   /* --------------------------------------------------------------- length -- */

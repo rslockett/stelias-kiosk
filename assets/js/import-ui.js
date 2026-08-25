@@ -141,7 +141,11 @@
         '</div>' +
       '</div>' +
 
-      (warn ? '<p class="linkwarn">⚠ ' + esc(warn) + '</p>' : '');
+      (warn ?
+        '<p class="linkwarn">⚠ ' + esc(warn) + ' ' +
+        '<button type="button" class="btn btn--ghost btn--sm" data-act="shorten">Shorten this link</button>' +
+        '</p>'
+        : '');
   }
 
   function render() {
@@ -211,10 +215,47 @@
     if (publishBtn) publishBtn.disabled = on === 0;
   });
 
+  /**
+   * Replace a long link with a short one via TinyURL's free, keyless
+   * endpoint. This sends the destination address to a third party — fine
+   * for the public signup/donation pages these links point to, but it's
+   * why this is a button the editor presses, not something automatic.
+   */
+  function shortenLink(url) {
+    return fetch('https://tinyurl.com/api-create.php?url=' + encodeURIComponent(url))
+      .then(r => { if (!r.ok) throw new Error('TinyURL returned ' + r.status); return r.text(); })
+      .then(t => {
+        const short = t.trim();
+        if (!/^https?:\/\/\S+$/.test(short)) throw new Error('Unexpected response');
+        return short;
+      });
+  }
+
   cardsEl.addEventListener('click', e => {
     const act = e.target.dataset.act;
     if (!act) return;
     const i = +e.target.closest('.card').dataset.i;
+
+    if (act === 'shorten') {
+      const btn = e.target;
+      const item = items[i];
+      btn.disabled = true;
+      btn.textContent = 'Shortening…';
+      shortenLink(item.link)
+        .then(short => {
+          item.link = short;
+          render();
+          toast('Shortened to ' + short);
+        })
+        .catch(err => {
+          console.error(err);
+          btn.disabled = false;
+          btn.textContent = 'Shorten this link';
+          toast('Could not shorten that link — check the connection and try again');
+        });
+      return;
+    }
+
     if (act === 'del') items.splice(i, 1);
     else if (act === 'up' && i > 0) items.splice(i - 1, 0, items.splice(i, 1)[0]);
     else if (act === 'down' && i < items.length - 1) items.splice(i + 1, 0, items.splice(i, 1)[0]);
