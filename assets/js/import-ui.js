@@ -270,11 +270,22 @@
 
   /* ---------------------------------------------------------------- meter -- */
 
-  // Below this, text on a 1080p screen stops being comfortable to read from
-  // across a hall. It is above the hard floor in config.js (minBodyPx), which
-  // is where the text stops shrinking and starts being cut instead — so this
-  // warns while there is still room to act.
-  const SMALL_TEXT_PX = 32;
+  /* Readability thresholds, in px of body text at 1080p.
+   *
+   * These are about being *read from across a hall*, which is a much higher
+   * bar than "fitted on the slide without being cut". A capital letter is
+   * roughly 0.7 of the font size, and on a 55" 1080p screen one pixel is
+   * about 0.025" — so 34px of body text is a little under 0.6" of letter,
+   * which signage practice puts at comfortable for roughly six feet. Six
+   * feet is standing at the television, not sitting with a coffee.
+   *
+   * Both numbers sit above config.js's minBodyPx, which is where the text
+   * stops shrinking and gets cut instead. That is deliberate: the warning
+   * has to arrive while there is still room to fix it by shortening the
+   * words, rather than after the screen has already thrown some away.
+   */
+  const COMFORTABLE_PX = 46;   // at or above this, it reads from across the room
+  const SMALL_TEXT_PX = 34;    // below this, it is too small for the hall
 
   /**
    * How full this slide is — measured, never guessed.
@@ -299,19 +310,26 @@
       return { level: 'over', pct: 100, note: 'Too long — the TV cut this short' };
     }
 
+    // The bar fills as the text shrinks, and reads 100% at the point the text
+    // becomes too small for the room — not at the point the screen gives up
+    // and starts cutting. Measuring it against the cutting floor made a slide
+    // nobody could read from a table look like it still had a quarter of its
+    // space left.
     const max = CFG.maxBodyPx || 62;
-    const min = CFG.minBodyPx || 26;
     const pct = Math.max(0, Math.min(100,
-      Math.round(((max - fit.px) / Math.max(1, max - min)) * 100)));
+      Math.round(((max - fit.px) / Math.max(1, max - SMALL_TEXT_PX)) * 100)));
 
-    const level = fit.atFloor || fit.px < SMALL_TEXT_PX ? 'tight' : 'good';
-    return {
-      level,
-      pct,
-      note: level === 'tight'
-        ? pct + '% full — fits, but the text is small'
-        : pct + '% full — reads well from across the hall',
-    };
+    if (fit.px < SMALL_TEXT_PX) {
+      return {
+        level: 'over',
+        pct: 100,
+        note: 'Text shrank to ' + Math.round(fit.px) + 'px — too small to read from the hall',
+      };
+    }
+    if (fit.px < COMFORTABLE_PX) {
+      return { level: 'tight', pct, note: pct + '% full — getting small, worth shortening' };
+    }
+    return { level: 'good', pct, note: pct + '% full — reads well from across the hall' };
   }
 
   /* ------------------------------------------------------------ link check -- */
@@ -686,14 +704,20 @@
       verdictEl.textContent =
         'Too long. The TV cut this short and pointed people at the bulletin — ' +
         'shorten it here and the whole thing will show.';
-    } else if (fit.atFloor || fit.px < SMALL_TEXT_PX) {
+    } else if (fit.px < SMALL_TEXT_PX) {
+      verdictEl.className = 'verdict is-over';
+      verdictEl.textContent =
+        'All of it fits, but only by shrinking the text to ' + Math.round(fit.px) +
+        'px — too small to read from a table across the hall. This needs shortening.';
+    } else if (fit.px < COMFORTABLE_PX) {
       verdictEl.className = 'verdict is-tight';
       verdictEl.textContent =
-        'It all fits, but the text had to shrink to ' + Math.round(fit.px) +
-        'px to do it. Shortening it would make it easier to read from across the hall.';
+        'Fits at ' + Math.round(fit.px) + 'px. Readable, but on the small side — ' +
+        'cutting a sentence would carry better across the room.';
     } else {
       verdictEl.className = 'verdict is-good';
-      verdictEl.textContent = 'Fits comfortably, at a size that reads from across the hall.';
+      verdictEl.textContent =
+        'Fits at ' + Math.round(fit.px) + 'px — reads comfortably from across the hall.';
     }
   }
 

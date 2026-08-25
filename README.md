@@ -166,11 +166,19 @@ of the TV screen at full 1920×1080, and the bar reports the font size the
 text had to shrink to in order to fit. Empty bar means a nearly bare slide;
 full bar means the text is as small as it is allowed to get.
 
-- **Green** — fits at a size that reads from across the hall.
-- **Amber** — it all fits, but the text had to shrink to do it. Worth
-  shortening.
-- **Red** — genuinely too long. The TV cut it short and pointed people at the
-  bulletin instead.
+- **Green** (46px and up) — reads comfortably from across the hall.
+- **Amber** (34–46px) — readable, but on the small side. Worth cutting a
+  sentence.
+- **Red** (under 34px, or cut short) — either the TV trimmed it, or it only
+  fitted by shrinking the text below what anyone can read from a table. Both
+  need shortening.
+
+Those thresholds are about being *read from across a hall*, which is a much
+higher bar than "fitted on the slide without being cut". A capital letter is
+roughly 0.7 of the font size, and on a 55" 1080p screen a pixel is about
+0.025 inches — so 34px of body text is a little under 0.6" of letter, which
+signage practice puts at comfortable for about six feet. Six feet is standing
+at the television, not sitting with a coffee.
 
 Length in characters is a poor guide to this and is not used: a 1266-character
 notice can fit comfortably while a shorter one with a QR code and a photo does
