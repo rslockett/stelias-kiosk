@@ -48,7 +48,7 @@ window.KIOSK_CONFIG = {
 
   // The "Web app URL" from deploying sheet/Code.gs. Looks like:
   // https://script.google.com/macros/s/AKfycb.../exec
-  publishUrl: '',
+  publishUrl: 'https://script.google.com/macros/s/AKfycbxhDCoR4tiHpI_MLq7SBFOx4kjN_TfbS9eKO92QhztUjHiGzPIjfbT37H709cBltgUi/exec',
 
   // The password you chose inside sheet/Code.gs (the SHARED_SECRET line).
   //
@@ -58,7 +58,7 @@ window.KIOSK_CONFIG = {
   // Never reuse an email or bank password here, and don't treat it as real
   // access control — only as a speed bump against a stranger stumbling onto
   // the publish address by accident.
-  publishSecret: '',
+  publishSecret: 'byzantine',
 
   // Optional: the Sheet's own address, so the importer can offer an
   // "Open the Sheet" link to double-check a publish went through. Just the
