@@ -23,7 +23,7 @@ window.KIOSK_CONFIG = {
      Leave this exactly as-is to run on the built-in sample announcements,
      which is handy for testing the TV before the real Sheet exists.
   -------------------------------------------------------------------------- */
-  sheetCsvUrl: 'sample/announcements.csv',
+  sheetCsvUrl: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRKHWTgqqt76qjc_U3VU9xdNLUJpDKjnnl2o_Hm7g85vC_Zy8-Hhiir28naTV25GW98_PWvjHF26hj5/pub?gid=0&single=true&output=csv',
 
 
   /* --------------------------------------------------------------------------
