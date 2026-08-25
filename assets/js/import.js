@@ -167,6 +167,18 @@
     return { link, body };
   }
 
+  /**
+   * "Scan to sign up" makes no sense next to an email QR code, and a bare
+   * default gives no hint *whose* email it is when a card only has one.
+   * Put the address right in the caption instead.
+   */
+  function defaultLabelFor(link) {
+    if (/^mailto:/i.test(link)) {
+      return 'Scan to email ' + link.replace(/^mailto:/i, '').split('?')[0];
+    }
+    return global.KIOSK_CONFIG.defaultQrLabel || 'Scan to sign up';
+  }
+
   /* ------------------------------------------------------------- unwrap -- */
 
   /**
@@ -313,7 +325,7 @@
           title: b.title,
           body: text,
           link: link,
-          linkLabel: link ? (global.KIOSK_CONFIG.defaultQrLabel || 'Scan to sign up') : '',
+          linkLabel: link ? defaultLabelFor(link) : '',
           end: findDate(b.title + '\n' + text),
         };
       });
@@ -362,18 +374,30 @@
     for (const b of blocks) {
       if (b.bold) {
         flush();
-        cur = { title: b.text, lines: [], link: b.link || '', tracking: !!b.tracking };
+        cur = { title: b.text, lines: [], link: b.link || '', tracking: !!b.tracking, linkSet: new Set(b.link ? [b.link] : []) };
       } else {
-        if (!cur) cur = { title: '', lines: [], link: '', tracking: false };
+        if (!cur) cur = { title: '', lines: [], link: '', tracking: false, linkSet: new Set() };
         // A block can hold several lines once <br>s have been honoured; each
         // one needs to stand alone so sub-headings stay findable.
         b.text.split('\n').forEach(line => {
           if (line.trim()) cur.lines.push(line.trim());
         });
-        if (!cur.link && b.link) { cur.link = b.link; cur.tracking = !!b.tracking; }
+        // A group built from several small blocks — a staff directory where
+        // each name is its own line with its own mailto — can end up with
+        // more than one link. There's no correct way to pick just one, so
+        // this only keeps a link when every block that had one agrees.
+        if (b.link) {
+          cur.linkSet.add(b.link);
+          if (!cur.link) { cur.link = b.link; cur.tracking = !!b.tracking; }
+        }
       }
     }
     flush();
+
+    for (const g of groups) {
+      if (g.linkSet.size > 1) { g.link = ''; g.tracking = false; }
+      delete g.linkSet;
+    }
 
     // Not every sub-heading in the newsletter is bold. "Sacred Music
     // Opportunities" is bold, but the three separate opportunities underneath it
@@ -429,7 +453,7 @@
         // service time, a name, an address — not an accident of wrapping.
         body: autoBulletize(unwrapParagraphs(body, { rejoinWrapped: false })),
         link: finalLink,
-        linkLabel: finalLink ? (global.KIOSK_CONFIG.defaultQrLabel || 'Scan to sign up') : '',
+        linkLabel: finalLink ? defaultLabelFor(finalLink) : '',
         end: findDate(g.title + '\n' + body),
         tracking: g.tracking,
         include: true,
@@ -506,7 +530,7 @@
 
   global.Importer = {
     split, splitEml, splitBlocks, cleanup, toTsv, toMatrix, findDate, extractLink,
-    looksLikeHeading, cleanHeading, unwrapParagraphs, autoBulletize, COLUMNS,
+    looksLikeHeading, cleanHeading, unwrapParagraphs, autoBulletize, defaultLabelFor, COLUMNS,
   };
 
 })(window);

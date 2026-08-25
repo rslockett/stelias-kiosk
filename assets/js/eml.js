@@ -252,11 +252,17 @@
     const all = Array.from(doc.body ? doc.body.querySelectorAll(BLOCK_SEL) : []);
     const leaves = all.filter(el => !el.querySelector(BLOCK_SEL));
 
+    // A block naming several people — "Contact Linda (...) or Yara (...)",
+    // a staff directory with three emails — has no single right answer for
+    // which one QR code should point to. Rather than silently pick the
+    // first and mislabel it, leave the block link-less so a human decides.
     const linkIn = el => {
-      const a = el.querySelector('a[href^="http"], a[href^="mailto:"]');
-      if (!a) return { link: '', tracking: false };
-      const href = a.getAttribute('href');
+      const anchors = Array.from(el.querySelectorAll('a[href^="http"], a[href^="mailto:"]'));
+      const distinct = Array.from(new Set(anchors.map(a => a.getAttribute('href'))));
+      if (distinct.length !== 1) return { link: '', tracking: false };
+      const href = distinct[0];
       if (/^mailto:/i.test(href)) return { link: href, tracking: false };
+      const a = anchors[0];
       const picked = bestUrl(href, a.textContent + ' ' + el.textContent);
       return { link: picked.url, tracking: picked.tracking };
     };

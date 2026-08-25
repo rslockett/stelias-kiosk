@@ -181,7 +181,7 @@
     item[field] = e.target.value;
 
     if (field === 'link' && e.target.value && !item.linkLabel) {
-      item.linkLabel = global.KIOSK_CONFIG.defaultQrLabel;
+      item.linkLabel = global.Importer.defaultLabelFor(e.target.value);
       card.querySelector('[data-f="linkLabel"]').value = item.linkLabel;
     }
     refreshMeter(card, item);
