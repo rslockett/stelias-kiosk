@@ -16,6 +16,7 @@
   const progressEl = document.getElementById('progress');
   const clockTimeEl = document.getElementById('clock-time');
   const clockDateEl = document.getElementById('clock-date');
+  const clockWeatherEl = document.getElementById('clock-weather');
   const offlineEl = document.getElementById('offline');
   const emptyEl = document.getElementById('empty');
 
@@ -209,6 +210,13 @@
     offlineEl.title = status.message || '';
   }
 
+  function onWeather(w) {
+    if (!clockWeatherEl) return;
+    if (!w) { clockWeatherEl.hidden = true; return; }
+    clockWeatherEl.textContent = w.tempF + '°F — ' + w.label;
+    clockWeatherEl.hidden = false;
+  }
+
   /* ------------------------------------------------------------ controls -- */
 
   // Handy when setting the TV up, or when someone wants to hold a slide.
@@ -226,6 +234,7 @@
       global.liturgicalSource && global.liturgicalSource.refresh();
       global.coffeeSignupSource && global.coffeeSignupSource.refresh();
       global.breadSignupSource && global.breadSignupSource.refresh();
+      global.weatherSource && global.weatherSource.refresh();
     }
   }
 
@@ -259,6 +268,8 @@
     tickClock();
     setInterval(tickClock, 10 * 1000);
     scheduleDailyReload();
+
+    global.weatherSource = global.Weather.createWeatherSource().on(onWeather).start();
 
     // Measuring text before the real fonts land gives wrong answers, and every
     // slide would be sized for a fallback font it isn't going to use.

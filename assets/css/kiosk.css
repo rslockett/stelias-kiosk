@@ -203,6 +203,15 @@ body::after {
   color: rgba(255, 238, 197, 0.72);
 }
 
+.clock__weather {
+  margin: 0.4vh 0 0;
+  font-family: 'Montserrat', system-ui, sans-serif;
+  font-weight: 500;
+  font-size: 1.9vh;
+  color: var(--gold);
+}
+.clock__weather[hidden] { display: none; }
+
 /* ---------------------------------------------------------------- stage -- */
 
 .stage {

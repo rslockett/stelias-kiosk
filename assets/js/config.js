@@ -154,6 +154,19 @@ window.KIOSK_CONFIG = {
   // Show the clock and date in the top-right corner.
   showClock: true,
 
+  // The current temperature, shown under the clock. Uses Open-Meteo — free,
+  // no account, no API key.
+  //
+  // Find your coordinates: search "[your city] latitude longitude", or
+  // right-click your location in Google Maps and copy the two numbers it
+  // shows at the top of the menu.
+  //
+  // Set latitude to null to turn weather off entirely.
+  weather: {
+    latitude: 30.2672,
+    longitude: -97.7431,
+  },
+
 
   /* --------------------------------------------------------------------------
      7. FINE TUNING  (you can almost certainly ignore this section)
