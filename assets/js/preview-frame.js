@@ -41,6 +41,11 @@
   function setupChrome() {
     document.documentElement.style.setProperty(
       '--safe-area', (CFG.safeAreaPercent || 0) + '%');
+    // Whatever the television is set to, so the preview keeps telling the
+    // truth about what the hall will see.
+    if (CFG.cornerOrnament !== undefined && CFG.cornerOrnament !== null) {
+      document.documentElement.style.setProperty('--ornament', CFG.cornerOrnament);
+    }
     // Slower than the TV's crossfade on purpose: in the editor these swap
     // every time a key is pressed, and a long fade would lag behind typing.
     document.documentElement.style.setProperty('--transition', '220ms');

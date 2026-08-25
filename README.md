@@ -440,6 +440,13 @@ It's too long. See "Keep the links short" above.
 **The edges are cut off.**
 Some TVs crop the picture. Raise `safeAreaPercent` in `config.js`.
 
+**The corner crosses look washed out on the TV.**
+They will always look fainter there than on a computer — a television throws
+away colour detail, sharpens edges and runs a bright backlight, all of which
+flatten fine gold linework. Raise `cornerOrnament` in `config.js` (0.17 by
+default, up to about 0.25) and judge it standing where people actually sit.
+Lower it, or set it to 0, if it pulls attention off the announcement.
+
 ---
 
 ## What's in here

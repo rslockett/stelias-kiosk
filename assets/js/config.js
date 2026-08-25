@@ -122,6 +122,18 @@ window.KIOSK_CONFIG = {
   // safely inside the visible area. Increase if the edges look cut off.
   safeAreaPercent: 3.5,
 
+  // How strongly the ornate parish cross shows in the four corners.
+  //
+  // Judge this on the television in the hall, not on a computer — they do not
+  // agree, and the TV is the one that matters. A TV throws away colour detail,
+  // sharpens edges and runs a bright backlight, all of which wash out fine
+  // gold linework that looks perfectly clear on a laptop at arm's length.
+  //
+  // 0.17 is a visible-but-quiet frame. Raise toward 0.25 if the corners still
+  // look bare from across the hall; drop toward 0.10 if they pull the eye away
+  // from the announcement. 0 turns them off entirely.
+  cornerOrnament: 0.17,
+
   // Show a small dot in the corner when the Sheet can't be reached and the
   // screen is running on its last saved copy.
   showOfflineIndicator: true,

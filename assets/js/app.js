@@ -202,6 +202,9 @@
       '--safe-area', (CFG.safeAreaPercent || 0) + '%');
     document.documentElement.style.setProperty(
       '--transition', (CFG.transitionMs || 700) + 'ms');
+    if (CFG.cornerOrnament !== undefined && CFG.cornerOrnament !== null) {
+      document.documentElement.style.setProperty('--ornament', CFG.cornerOrnament);
+    }
 
     document.getElementById('church-name').textContent = CFG.churchName;
     document.getElementById('tagline').textContent = CFG.tagline;

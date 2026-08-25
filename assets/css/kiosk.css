@@ -22,6 +22,7 @@
 
   --safe-area: 3.5%;       /* set from config.js — guards against TV overscan */
   --transition: 700ms;     /* set from config.js */
+  --ornament: 0.17;        /* set from config.js — corner cross strength */
 }
 
 * { box-sizing: border-box; }
@@ -43,7 +44,19 @@ body {
 
 /* The ornate parish cross, echoed softly in all four corners rather than
    sitting once on the right — reads as a deliberate frame instead of a
-   single stray watermark. */
+   single stray watermark.
+   ----------------------------------------------------------------------------
+   Drawn larger than it needs to be, on purpose. The cross is fine gold and
+   teal linework, and a television is unkind to exactly that: colour detail is
+   halved or quartered on its way down the HDMI cable, edge sharpening and
+   noise reduction chew at thin strokes, and a bright backlight in a lit hall
+   washes out whatever survives. The same watermark that looks right on a
+   laptop at arm's length can disappear on the wall.
+   Scaling the artwork up thickens every stroke in real pixels, which survives
+   all of that far better than simply making a thin line more opaque. The
+   saturation nudge works the same way — a warm gold reads as gold across a
+   room even when its brightness has been flattened, where a grey would just
+   vanish into the cream. */
 body::before {
   content: '';
   position: fixed;
@@ -54,8 +67,9 @@ body::before {
   background-repeat: no-repeat;
   background-position: top -10vh left -10vh, top -10vh right -10vh,
                         bottom -10vh left -10vh, bottom -10vh right -10vh;
-  background-size: 46vh 46vh;
-  opacity: 0.09;
+  background-size: 56vh 56vh;
+  opacity: var(--ornament);
+  filter: saturate(1.35);
   pointer-events: none;
   z-index: 0;
 }
