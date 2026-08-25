@@ -372,7 +372,11 @@
           '<div class="meter">' +
             '<span class="meter__track"><span class="meter__fill"></span></span>' +
             '<span class="meter__note"></span>' +
+            '<button class="btn btn--ghost btn--sm meter__tighten" type="button" data-act="tighten">' +
+              'Tighten it' +
+            '</button>' +
           '</div>' +
+          '<div class="tighten-panel" data-tighten-panel hidden></div>' +
         '</div>' +
 
         '<div class="grid3">' +
@@ -812,6 +816,26 @@
     if (act === 'select') { select(i); return; }
 
     if (act === 'shorten') { shortenOnCard(btn, i); return; }
+    if (act === 'tighten' || act === 'tighten-retry') { tightenOnCard(i); return; }
+
+    if (act === 'tighten-use') {
+      const panel = btn.closest('[data-tighten-panel]');
+      const text = panel.querySelector('.tighten-panel__text').value;
+      items[i].body = text;
+      panel.hidden = true;
+      panel.innerHTML = '';
+      renderAll();
+      const fresh = cardAt(i);
+      if (fresh) fresh.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      toast('Updated — check the preview before publishing');
+      return;
+    }
+    if (act === 'tighten-discard') {
+      const panel = btn.closest('[data-tighten-panel]');
+      panel.hidden = true;
+      panel.innerHTML = '';
+      return;
+    }
 
     if (act === 'up' && i > 0) {
       items.splice(i - 1, 0, items.splice(i, 1)[0]);
@@ -905,6 +929,59 @@
       item.linkLabel = updated.map(p => p.label).join('\n');
       return true;
     });
+  }
+
+  /* --------------------------------------------------------------- tighten -- */
+
+  /**
+   * Ask for a shorter version of one announcement's body, then show it next
+   * to the original for the editor to accept or discard. See tighten.js for
+   * how the suggestion itself is produced — on-device AI where the browser
+   * has it ready, wording rules everywhere else. Nothing here writes to the
+   * announcement; "Use this" (handled in the click delegate above) does.
+   */
+  async function tightenOnCard(i) {
+    const item = items[i];
+    const card = cardAt(i);
+    if (!item || !card) return;
+
+    const btn = card.querySelector('[data-act="tighten"]');
+    const panel = card.querySelector('[data-tighten-panel]');
+    if (!btn || !panel) return;
+
+    btn.disabled = true;
+    btn.classList.add('is-busy');
+    panel.hidden = true;
+
+    try {
+      const v = global.Slide.lengthVerdict(item.title, item.body, !!item.link);
+      const result = await global.Tighten.suggest(item, v.budget);
+
+      if (!result || !result.text || result.text.trim() === String(item.body || '').trim()) {
+        toast('Could not find anything to trim there');
+        return;
+      }
+      renderTightenPanel(panel, result);
+    } catch (err) {
+      console.error(err);
+      toast('Could not tighten that just now');
+    } finally {
+      btn.disabled = false;
+      btn.classList.remove('is-busy');
+    }
+  }
+
+  function renderTightenPanel(panel, result) {
+    panel.hidden = false;
+    panel.innerHTML =
+      '<p class="tighten-panel__source">' + esc(result.engineLabel) +
+        ' — ' + plural(result.text.length, 'character') + ', check nothing important was lost.</p>' +
+      '<textarea class="tighten-panel__text" rows="4">' + esc(result.text) + '</textarea>' +
+      '<div class="row">' +
+        '<button class="btn btn--primary btn--sm" type="button" data-act="tighten-use">Use this</button>' +
+        '<button class="btn btn--ghost btn--sm" type="button" data-act="tighten-retry">Try again</button>' +
+        '<button class="btn btn--ghost btn--sm" type="button" data-act="tighten-discard">Discard</button>' +
+      '</div>';
   }
 
   function shortenOnCard(btn, i) {

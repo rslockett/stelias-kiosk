@@ -524,7 +524,8 @@ textarea:focus, input[type="text"]:focus {
 
 /* ---- the length meter ---- */
 
-.meter { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.4rem; }
+.meter { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.4rem; flex-wrap: wrap; }
+.meter__track { min-width: 4rem; }
 
 .meter__track {
   flex: 1;
@@ -548,6 +549,47 @@ textarea:focus, input[type="text"]:focus {
 .is-good  .meter__note { color: var(--good); }
 .is-tight .meter__note { color: var(--tight); }
 .is-over  .meter__note { color: var(--over); }
+
+.meter__tighten {
+  margin-left: auto;
+  flex: none;
+  padding: 0.22rem 0.6rem;
+  font-size: 0.62rem;
+}
+
+/* ------------------------------------------------------------ tighten -- */
+
+.tighten-panel {
+  margin-top: 0.6rem;
+  background: var(--gold-pale);
+  border-left: 3px solid var(--gold-deep);
+  border-radius: 3px;
+  padding: 0.75rem 0.85rem;
+}
+
+.tighten-panel__source {
+  margin: 0 0 0.5rem;
+  font-size: 0.82rem;
+  color: #7a5a09;
+}
+
+.tighten-panel__text {
+  width: 100%;
+  font-family: 'EB Garamond', Georgia, serif;
+  font-size: 0.98rem;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--gold-deep);
+  border-radius: 4px;
+  padding: 0.6rem 0.75rem;
+  line-height: 1.45;
+  resize: vertical;
+  min-height: 5rem;
+}
+.tighten-panel__text:focus {
+  outline: 2px solid var(--gold-deep);
+  outline-offset: 1px;
+}
 
 .linkwarn {
   margin: 0.5rem 0 0;

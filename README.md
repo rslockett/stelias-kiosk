@@ -155,6 +155,27 @@ same speed, so you can see the whole rotation before anyone else does.
 If an announcement isn't on the TV today — switched off, or past its **Take it
 down after** date — the preview greys out and says which.
 
+### Tighten it
+
+When an announcement runs long, **Tighten it** (under the length bar) suggests
+a shorter version — never applies one. You see the suggestion next to your own
+words, in an editable box, and choose **Use this**, **Try again**, or
+**Discard**. Nothing is written until you press Use this.
+
+Where it comes from depends on the computer:
+
+- **In an up-to-date Chrome or Edge with the on-device model already
+  downloaded**, it uses that — genuinely free, runs on the machine in front of
+  you, no account and no internet request involved. This is a young part of
+  the browser; if it isn't ready there, nothing breaks.
+- **Everywhere else**, it strips a fixed list of polite filler — "please note
+  that", "we are pleased to announce that", "as a reminder" — that carries no
+  facts, only tone. Works in any browser, always, for nothing.
+
+Either way, no date, time, place, price, phone number or name is ever removed
+by design — but you're shown the result and asked to check before it goes
+anywhere near the Sheet, the same as everything else in this editor.
+
 ---
 
 ## Two things that decide whether this works
@@ -393,6 +414,7 @@ assets/
   js/deck.js        filters by date, polls for changes, caches offline
   js/slide.js       draws a slide, and guarantees it fits on one
   js/live.js        reads and writes the Sheet; decides what "live" means
+  js/tighten.js     suggests a shorter version of an announcement
   js/eml.js         reads downloaded .eml newsletters
   js/import.js      splits a newsletter into announcements
   js/import-ui.js   the editor itself — list, preview, publishing
