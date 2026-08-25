@@ -80,6 +80,12 @@
   let conflict = false;
   let pendingImport = null;   // announcements read from a newsletter, awaiting a choice
 
+  // 'checking' | 'ready' | 'unavailable' — whether Chrome's on-device AI is
+  // ready on this computer. Checked once at boot (see boot() below) so the
+  // "Tighten it" button can say so up front, instead of the editor finding
+  // out only after they've clicked it and waited.
+  let aiStatus = 'checking';
+
   const DRAFT_KEY = 'stelias.editor.draft.' + global.Deck.hash(String(CFG.sheetCsvUrl || ''));
   const NAME_KEY = 'stelias.editor.name';
 
@@ -369,11 +375,14 @@
           '<label class="field__label">Announcement ' +
             '<small>— a line starting with “-” becomes a bullet</small></label>' +
           '<textarea data-f="body">' + esc(item.body) + '</textarea>' +
-          '<div class="meter">' +
+          '<div class="meter" title="Shows whether this announcement fits on one TV slide — green fits easily, amber fits small, red gets cut short.">' +
             '<span class="meter__track"><span class="meter__fill"></span></span>' +
             '<span class="meter__note"></span>' +
             '<button class="btn btn--ghost btn--sm meter__tighten" type="button" data-act="tighten">' +
               'Tighten it' +
+              (aiStatus === 'ready'
+                ? '<span class="ai-badge" title="Chrome’s on-device AI is ready on this computer — this will use it, not the plain word-trimming fallback">✨ AI</span>'
+                : '') +
             '</button>' +
           '</div>' +
           '<div class="tighten-panel" data-tighten-panel hidden></div>' +
@@ -776,6 +785,17 @@
     const i = +card.dataset.i;
     const item = items[i];
     item[field] = e.target.value;
+
+    // The length bar's colour and note come from the last real measurement
+    // the preview sent back — but that measurement is now stale the instant
+    // any of these fields change, and typing keeps re-debouncing the preview
+    // that would refresh it. Left alone, the bar's fill would keep sliding
+    // as you type while its colour and wording sat frozen on whatever they
+    // said when you started — which reads as broken, not as "still
+    // checking". Falling back to the character estimate keeps it honestly
+    // responsive on every keystroke; it gets upgraded to the true answer the
+    // moment the preview catches up.
+    if (field === 'title' || field === 'body' || field === 'link') item._fit = null;
 
     // Typing a link with no caption yet: fill in a sensible one rather than
     // leaving the QR code on the TV captioned with nothing.
@@ -1400,9 +1420,28 @@
     e.returnValue = '';
   });
 
+  /**
+   * Find out once, in the background, whether this computer has Chrome's
+   * on-device AI ready — so "Tighten it" can say so up front rather than the
+   * editor only learning it after clicking and waiting. Never blocks boot;
+   * whatever answer comes back just updates the button next time it's safe
+   * to redraw one.
+   */
+  function checkAiStatus() {
+    global.Tighten.readyEngine().then(engine => {
+      aiStatus = engine ? 'ready' : 'unavailable';
+      // Rebuilding the selected card's markup would blow away whatever
+      // someone is mid-typing into it — safe to do only when nothing in it
+      // currently has the keyboard's attention.
+      const active = document.activeElement;
+      if (!active || !listEl.contains(active)) renderList();
+    });
+  }
+
   async function boot() {
     trackBarHeights();
     renderEditorChip();
+    checkAiStatus();
 
     if (CFG.sheetEditUrl) {
       sheetLink.href = CFG.sheetEditUrl;

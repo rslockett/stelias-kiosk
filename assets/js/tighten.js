@@ -125,6 +125,24 @@
     );
   }
 
+  // A plain availability check should answer in a few milliseconds. Five
+  // seconds is already generous slack for a slow machine — well short of
+  // making anyone wonder if the button is broken.
+  const CHECK_TIMEOUT_MS = 5000;
+
+  // The detection below only ever needs to run once. Availability doesn't
+  // change mid-visit, and on a setup where the check is slow or hangs (the
+  // whole reason it's wrapped in withTimeout above), re-running it on every
+  // click of "Tighten it" means paying that wait again every single time —
+  // which is exactly what made the button feel like it had stalled. Cache
+  // the one in-flight promise and hand every caller the same one.
+  let enginePromise = null;
+
+  function readyEngine() {
+    if (!enginePromise) enginePromise = detectEngine();
+    return enginePromise;
+  }
+
   /**
    * Is Chrome's on-device model ready to use right now?
    *
@@ -139,12 +157,7 @@
    * still settling: two different global names have been used for the same
    * capability as it moved from origin trial toward a standard shape.
    */
-  // A plain availability check should answer in a few milliseconds. Five
-  // seconds is already generous slack for a slow machine — well short of
-  // making anyone wonder if the button is broken.
-  const CHECK_TIMEOUT_MS = 5000;
-
-  async function readyEngine() {
+  async function detectEngine() {
     try {
       if (global.LanguageModel && global.LanguageModel.availability) {
         const a = await withTimeout(global.LanguageModel.availability(), CHECK_TIMEOUT_MS);
