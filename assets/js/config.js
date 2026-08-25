@@ -48,7 +48,7 @@ window.KIOSK_CONFIG = {
 
   // The "Web app URL" from deploying sheet/Code.gs. Looks like:
   // https://script.google.com/macros/s/AKfycb.../exec
-  publishUrl: 'https://script.google.com/macros/s/AKfycbxhDCoR4tiHpI_MLq7SBFOx4kjN_TfbS9eKO92QhztUjHiGzPIjfbT37H709cBltgUi/exec',
+  publishUrl: 'https://script.google.com/macros/s/AKfycbysocswKg6tBYhBwOznPTzBBjWF4T11ib97pVw9TPdOWk71Cja83SHhZtBFeJbhkto2/exec',
 
   // The password you chose inside sheet/Code.gs (the SHARED_SECRET line).
   //
