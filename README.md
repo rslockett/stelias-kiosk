@@ -477,7 +477,16 @@ can open these files and read them.
 
 Colours and typefaces are taken from sainteliaschurch.org so the hall screen
 looks like the rest of the parish: EB Garamond and Montserrat, on cream, with
-the gold and oxblood from the site.
+the gold and oxblood from the site. The masthead borrows the website's
+signature device — pale gold type on a deep navy panel, with the same inset
+gold rule the QR frames use.
+
+> **If you change the masthead, watch the length bars.** The screen gives
+> whatever height the masthead does not use to the announcement, and the
+> fitting code answers a shorter stage by shrinking the text. A roomier
+> header is therefore paid for by the people furthest from the screen. When
+> the masthead grew, two announcements dropped a readability band; the space
+> was taken back out of padding rather than out of the words.
 
 > **Note:** don't commit real newsletters to this repository. GitHub Pages is
 > public, and the newsletters contain parishioners' names and staff email
