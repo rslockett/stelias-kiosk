@@ -28,6 +28,27 @@
 (function (global) {
   'use strict';
 
+  /**
+   * Race a promise against a clock. If it doesn't settle in time, this
+   * rejects on its own so the caller can move on.
+   *
+   * The on-device AI checks below are new browser APIs, still settling, and
+   * this file has already seen one settle by simply never resolving —
+   * `availability()` can hang indefinitely rather than answer, and so can a
+   * browser extension that happens to define its own `window.ai` the
+   * built-in check stumbles into. Either way, nothing here should be able to
+   * leave the "Tighten it" button spinning forever.
+   */
+  function withTimeout(promise, ms) {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('timed out after ' + ms + 'ms')), ms);
+      promise.then(
+        v => { clearTimeout(timer); resolve(v); },
+        e => { clearTimeout(timer); reject(e); }
+      );
+    });
+  }
+
   /* ---------------------------------------------------------- rule-based -- */
 
   // Each of these is a hedge or a politeness formula, never a fact. Removing
@@ -118,31 +139,36 @@
    * still settling: two different global names have been used for the same
    * capability as it moved from origin trial toward a standard shape.
    */
+  // A plain availability check should answer in a few milliseconds. Five
+  // seconds is already generous slack for a slow machine — well short of
+  // making anyone wonder if the button is broken.
+  const CHECK_TIMEOUT_MS = 5000;
+
   async function readyEngine() {
     try {
       if (global.LanguageModel && global.LanguageModel.availability) {
-        const a = await global.LanguageModel.availability();
+        const a = await withTimeout(global.LanguageModel.availability(), CHECK_TIMEOUT_MS);
         if (a === 'available' || a === 'readily') return 'prompt';
       }
-    } catch (e) { /* present but unhappy — fall through */ }
+    } catch (e) { /* present but unhappy, or didn't answer — fall through */ }
 
     try {
       if (global.ai && global.ai.languageModel && global.ai.languageModel.capabilities) {
-        const c = await global.ai.languageModel.capabilities();
+        const c = await withTimeout(global.ai.languageModel.capabilities(), CHECK_TIMEOUT_MS);
         if (c.available === 'readily') return 'prompt-legacy';
       }
     } catch (e) { /* ignore */ }
 
     try {
       if (global.Summarizer && global.Summarizer.availability) {
-        const a = await global.Summarizer.availability();
+        const a = await withTimeout(global.Summarizer.availability(), CHECK_TIMEOUT_MS);
         if (a === 'available' || a === 'readily') return 'summarizer';
       }
     } catch (e) { /* ignore */ }
 
     try {
       if (global.ai && global.ai.summarizer && global.ai.summarizer.capabilities) {
-        const c = await global.ai.summarizer.capabilities();
+        const c = await withTimeout(global.ai.summarizer.capabilities(), CHECK_TIMEOUT_MS);
         if (c.available === 'readily') return 'summarizer-legacy';
       }
     } catch (e) { /* ignore */ }
@@ -207,7 +233,10 @@
     const engine = await readyEngine();
     if (engine) {
       try {
-        const text = await runEngine(engine, title, body, targetChars);
+        // Generation gets much more slack than a bare availability check —
+        // an on-device model genuinely takes a few seconds to write a few
+        // sentences — but it is still bounded, for the same reason as above.
+        const text = await withTimeout(runEngine(engine, title, body, targetChars), 20000);
         if (text && text.length < body.length) {
           return { engine, engineLabel: ENGINE_LABEL[engine], text };
         }

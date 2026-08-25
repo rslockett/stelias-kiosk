@@ -955,7 +955,16 @@
 
     try {
       const v = global.Slide.lengthVerdict(item.title, item.body, !!item.link);
-      const result = await global.Tighten.suggest(item, v.budget);
+
+      // Tighten.suggest already bounds itself, but that guard lives inside an
+      // experimental browser API this file doesn't control. A second, dumber
+      // timer here means this button can never be stuck spinning no matter
+      // what that API does — worst case, it just says so.
+      const result = await Promise.race([
+        global.Tighten.suggest(item, v.budget),
+        new Promise((resolve, reject) =>
+          setTimeout(() => reject(new Error('tighten timed out')), 25000)),
+      ]);
 
       if (!result || !result.text || result.text.trim() === String(item.body || '').trim()) {
         toast('Could not find anything to trim there');
@@ -964,7 +973,7 @@
       renderTightenPanel(panel, result);
     } catch (err) {
       console.error(err);
-      toast('Could not tighten that just now');
+      toast('That took too long and was cancelled — try again, or trim it by hand');
     } finally {
       btn.disabled = false;
       btn.classList.remove('is-busy');
