@@ -82,6 +82,25 @@
     /\bin order to\b/gi,
     /\bkindly\b\s*/gi,
     /\bsimply\b\s*/gi,
+
+    // "Click the link" is worse than filler on a television: there is nothing
+    // to click, and the slide already carries a QR code with its own caption
+    // saying what it is for. These sentences are removed whole, full stop
+    // included, because what remains of one is never a sentence.
+    /\bfor (?:more )?information and to register,?\s*please click (?:on )?(?:this|the) link\.?/gi,
+    /\bto (?:sign up|register|donate|give),?\s*(?:please )?click (?:on )?(?:this|the) link( above| below)?\.?/gi,
+    /\b(?:please )?click (?:on )?(?:this|the) link( above| below)?( to (?:sign up|register|learn more))?\.?/gi,
+    /\bsign up (?:at|using) the link( above| below)?\.?/gi,
+    /\b(?:you can )?(?:sign up|register) (?:at|via|through) the link( above| below)?\.?/gi,
+    /\bscan the (?:QR )?code( above| below)?( to (?:sign up|register|learn more))?\.?/gi,
+
+    // Pure anticipation. Says nothing a reader can act on today, and on a
+    // screen that is refreshed weekly it is stale the moment it is true.
+    /\bmore (?:details|information)( on .{0,40}?)? (?:will be announced |will be shared |)?(?:coming |)soon[.!]?\s*/gi,
+    /\bstay tuned[.!]?\s*/gi,
+    /\bmark your calendars?[.!]?\s*/gi,
+    /\bwatch (?:this space|for more details)[.!]?\s*/gi,
+    /\bdetails to follow[.!]?\s*/gi,
   ];
 
   function ruleTighten(text) {

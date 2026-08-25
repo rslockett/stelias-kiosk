@@ -155,10 +155,33 @@ same speed, so you can see the whole rotation before anyone else does.
 If an announcement isn't on the TV today — switched off, or past its **Take it
 down after** date — the preview greys out and says which.
 
+### The Slide space bar
+
+Under each announcement's text is a bar reading something like
+**Slide space — 73% full — reads well from across the hall**.
+
+It is the answer to "will this actually fit on the television?", and it is
+measured rather than estimated: every announcement is drawn on a hidden copy
+of the TV screen at full 1920×1080, and the bar reports the font size the
+text had to shrink to in order to fit. Empty bar means a nearly bare slide;
+full bar means the text is as small as it is allowed to get.
+
+- **Green** — fits at a size that reads from across the hall.
+- **Amber** — it all fits, but the text had to shrink to do it. Worth
+  shortening.
+- **Red** — genuinely too long. The TV cut it short and pointed people at the
+  bulletin instead.
+
+Length in characters is a poor guide to this and is not used: a 1266-character
+notice can fit comfortably while a shorter one with a QR code and a photo does
+not, because a QR panel takes about a third of the width.
+
 ### Tighten it
 
-When an announcement runs long, **Tighten it** (under the length bar) suggests
-a shorter version — never applies one. You see the suggestion next to your own
+When an announcement is amber or red, a **Tighten it** button appears beside
+the bar. It suggests a shorter version — never applies one. It does not appear
+on announcements that already fit, because there is nothing for it to do
+there. You see the suggestion next to your own
 words, in an editable box, and choose **Use this**, **Try again**, or
 **Discard**. Nothing is written until you press Use this.
 
@@ -175,6 +198,17 @@ Where it comes from depends on the computer:
 Either way, no date, time, place, price, phone number or name is ever removed
 by design — but you're shown the result and asked to check before it goes
 anywhere near the Sheet, the same as everything else in this editor.
+
+The wording rules also drop two things that are specifically wrong on a
+television: "click on this link" (there is nothing to click, and the slide
+already carries a QR code that says what it is for) and pure anticipation
+like "more details coming soon" or "stay tuned".
+
+If it reports finding nothing to trim on a red announcement, that is the
+honest answer rather than a failure: a notice that is all dates, times, costs
+and names has no filler in it, and shortening it means deciding what to leave
+out — which is a judgement call, not a rule. Keep the date, the time and who
+to contact, and send the rest to the bulletin.
 
 ---
 
@@ -405,7 +439,9 @@ Some TVs crop the picture. Raise `safeAreaPercent` in `config.js`.
 ```
 index.html          the screen in the hall
 import.html         the editor — the page everyone opens
-preview.html        one slide, drawn as the TV draws it; lives inside the editor
+preview.html        one slide, drawn as the TV draws it; used twice by the
+                    editor — once visibly, once hidden off-screen to measure
+                    every announcement's true fit
 assets/
   css/kiosk.css     how the screen looks
   css/admin.css     how the editor looks

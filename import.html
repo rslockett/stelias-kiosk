@@ -154,6 +154,18 @@
 
 </main>
 
+<!--
+  A second copy of the TV, kept off-screen and never shown to anybody.
+
+  Every announcement in the list is rendered through this at full 1920x1080
+  and measured, so the length bar and the "Too long" badge report what the
+  television actually does rather than guessing from how many characters were
+  typed. Guessing was wrong often enough to be worse than useless: a 1266
+  character announcement that fits perfectly was being flagged as too long.
+-->
+<iframe id="measure-frame" src="preview.html" aria-hidden="true" tabindex="-1"
+        title="Off-screen slide measurement"></iframe>
+
 <div class="toast" id="toast"></div>
 
 <script src="assets/js/config.js"></script>

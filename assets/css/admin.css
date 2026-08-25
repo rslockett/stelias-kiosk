@@ -526,8 +526,23 @@ textarea:focus, input[type="text"]:focus {
 
 /* ---- the length meter ---- */
 
-.meter { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.4rem; flex-wrap: wrap; }
+.meter { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.45rem; flex-wrap: wrap; }
 .meter__track { min-width: 4rem; }
+
+.meter__label {
+  flex: none;
+  font-family: 'Montserrat', system-ui, sans-serif;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+/* Before the first measurement comes back there is nothing truthful to say,
+   so the bar shows as an empty track rather than a colour that might be wrong. */
+.is-unknown .meter__fill { background: transparent; }
+.is-unknown .meter__note { color: var(--ink-faint); font-style: italic; }
 
 .meter__track {
   flex: 1;
@@ -803,6 +818,20 @@ textarea:focus, input[type="text"]:focus {
   margin: 0;
 }
 .empty-state[hidden] { display: none; }
+
+/* The measuring copy of the TV. It has to be a real, laid-out 1920x1080 frame
+   for the measurements to mean anything, so it can't be display:none or
+   zero-sized — it's simply parked off-screen where nobody will meet it. */
+#measure-frame {
+  position: absolute;
+  left: -20000px;
+  top: 0;
+  width: 1920px;
+  height: 1080px;
+  border: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
 
 .toast {
   position: fixed;

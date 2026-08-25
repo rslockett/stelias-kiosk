@@ -170,7 +170,11 @@
   const saveDraft = debounce(function () {
     try {
       localStorage.setItem(DRAFT_KEY, JSON.stringify({
-        items, liveSig, savedAt: Date.now(),
+        // _fit is a measurement of how the text fitted the screen, not part
+        // of the announcement. Storing it would restore a stale verdict on
+        // the next visit; leaving it out means every card is measured afresh.
+        items: items.map(it => Object.assign({}, it, { _fit: undefined })),
+        liveSig, savedAt: Date.now(),
       }));
     } catch (e) { /* storage full or disabled — the Sheet is the real copy */ }
   }, 400);
@@ -266,30 +270,47 @@
 
   /* ---------------------------------------------------------------- meter -- */
 
-  const METER_NOTES = {
-    good: 'Comfortable length',
-    tight: 'Fits, but the text will be small',
-    over: 'Too long — the TV will cut it short',
-  };
+  // Below this, text on a 1080p screen stops being comfortable to read from
+  // across a hall. It is above the hard floor in config.js (minBodyPx), which
+  // is where the text stops shrinking and starts being cut instead — so this
+  // warns while there is still room to act.
+  const SMALL_TEXT_PX = 32;
 
   /**
-   * How full this slide is.
+   * How full this slide is — measured, never guessed.
    *
-   * The bar comes from counting characters, which is an estimate but is cheap
-   * enough to run on every announcement in the list. The verdict is upgraded
-   * to the truth once the preview has actually drawn the slide and reported
-   * what it had to do to make it fit — a guess and a measurement disagreeing
-   * on screen is worse than either one alone.
+   * Every announcement is rendered off-screen at a real 1920x1080 and the
+   * fitting code reports back the font size it settled on and whether it had
+   * to cut anything. The bar is that font size read backwards: text sitting
+   * at the maximum size is a nearly empty slide, text pushed down to the
+   * floor is a full one.
+   *
+   * This used to be a character count with a fixed budget, and it was wrong
+   * in both directions on real parish announcements — flagging a 1266
+   * character notice that fits comfortably as "Too long", which then sent
+   * people to a Tighten button that correctly found nothing to fix. A number
+   * that argues with the screen is worse than no number.
    */
   function meterFor(item) {
-    const v = global.Slide.lengthVerdict(item.title, item.body, !!item.link);
-    const level = item._fit
-      ? (item._fit.trimmed ? 'over' : (item._fit.atFloor ? 'tight' : 'good'))
-      : v.level;
+    const fit = item._fit;
+    if (!fit) return { level: 'unknown', pct: 0, note: 'Checking how it fits…' };
+
+    if (fit.trimmed) {
+      return { level: 'over', pct: 100, note: 'Too long — the TV cut this short' };
+    }
+
+    const max = CFG.maxBodyPx || 62;
+    const min = CFG.minBodyPx || 26;
+    const pct = Math.max(0, Math.min(100,
+      Math.round(((max - fit.px) / Math.max(1, max - min)) * 100)));
+
+    const level = fit.atFloor || fit.px < SMALL_TEXT_PX ? 'tight' : 'good';
     return {
       level,
-      pct: Math.min(100, Math.round((v.chars / v.budget) * 100)),
-      note: METER_NOTES[level],
+      pct,
+      note: level === 'tight'
+        ? pct + '% full — fits, but the text is small'
+        : pct + '% full — reads well from across the hall',
     };
   }
 
@@ -361,6 +382,24 @@
       '</div>';
   }
 
+  /**
+   * "Tighten it" only appears on an announcement that is actually too long
+   * for the screen. Offering it on one that already fits was the worst kind
+   * of broken feature: it invited a click, thought about it, and then said
+   * there was nothing to do — which is true, and useless, and looks like a
+   * bug even though the announcement was fine all along.
+   */
+  function tightenButtonHtml(item) {
+    const level = meterFor(item).level;
+    if (level !== 'tight' && level !== 'over') return '';
+    return '<button class="btn btn--ghost btn--sm meter__tighten" type="button" data-act="tighten">' +
+      'Tighten it' +
+      (aiStatus === 'ready'
+        ? '<span class="ai-badge" title="Chrome’s on-device AI is ready on this computer — this will use it instead of the plain word-trimming fallback">✨ AI</span>'
+        : '') +
+      '</button>';
+  }
+
   function editHtml(item) {
     const warn = linkWarning(item);
     return '' +
@@ -375,15 +414,11 @@
           '<label class="field__label">Announcement ' +
             '<small>— a line starting with “-” becomes a bullet</small></label>' +
           '<textarea data-f="body">' + esc(item.body) + '</textarea>' +
-          '<div class="meter" title="Shows whether this announcement fits on one TV slide — green fits easily, amber fits small, red gets cut short.">' +
+          '<div class="meter" title="How much of one TV slide this announcement fills, measured by actually drawing it.">' +
+            '<span class="meter__label">Slide space</span>' +
             '<span class="meter__track"><span class="meter__fill"></span></span>' +
             '<span class="meter__note"></span>' +
-            '<button class="btn btn--ghost btn--sm meter__tighten" type="button" data-act="tighten">' +
-              'Tighten it' +
-              (aiStatus === 'ready'
-                ? '<span class="ai-badge" title="Chrome’s on-device AI is ready on this computer — this will use it, not the plain word-trimming fallback">✨ AI</span>'
-                : '') +
-            '</button>' +
+            tightenButtonHtml(item) +
           '</div>' +
           '<div class="tighten-panel" data-tighten-panel hidden></div>' +
         '</div>' +
@@ -440,11 +475,20 @@
   }
 
   function refreshMeter(card, item) {
-    const fill = card.querySelector('.meter__fill');
-    if (!fill) return;
+    const meter = card.querySelector('.meter');
+    if (!meter) return;
     const m = meterFor(item);
-    fill.style.width = m.pct + '%';
-    card.querySelector('.meter__note').textContent = m.note;
+    meter.querySelector('.meter__fill').style.width = m.pct + '%';
+    meter.querySelector('.meter__note').textContent = m.note;
+
+    // A measurement can flip an announcement into or out of needing help, so
+    // the button has to come and go with it — but never while it is mid-click
+    // and spinning, which would throw away the work in flight.
+    const existing = meter.querySelector('.meter__tighten');
+    if (existing && existing.classList.contains('is-busy')) return;
+    const wanted = tightenButtonHtml(item);
+    if (wanted && !existing) meter.insertAdjacentHTML('beforeend', wanted);
+    else if (!wanted && existing) existing.remove();
   }
 
   function renderList() {
@@ -490,6 +534,62 @@
     renderList();
     pushPreview();
   }
+
+  /* ======================================================== measuring == */
+
+  const measureFrameEl = $('measure-frame');
+  let measureReady = false;
+  let measureToken = 0;
+  const pendingMeasures = new Map();
+
+  function slidePayload(item) {
+    return {
+      title: item.title,
+      body: item.body,
+      link: item.link,
+      linkLabel: item.linkLabel,
+      image: item.image,
+    };
+  }
+
+  /** Render one announcement on the off-screen TV and report what it took. */
+  function measureOne(item) {
+    return new Promise(resolve => {
+      if (!measureReady) { resolve(null); return; }
+      const token = ++measureToken;
+      pendingMeasures.set(token, resolve);
+      measureFrameEl.contentWindow.postMessage(
+        { type: 'render', token, index: 0, total: 1, slide: slidePayload(item) },
+        global.location.origin);
+      // The measuring frame is ordinary code on an ordinary page, but the
+      // meter must never sit on "Checking…" forever if a message goes astray.
+      setTimeout(() => {
+        if (pendingMeasures.has(token)) { pendingMeasures.delete(token); resolve(null); }
+      }, 5000);
+    });
+  }
+
+  /**
+   * Measure one announcement and update just its card. Announcements are
+   * measured one at a time because they all share a single off-screen frame.
+   */
+  async function measureItem(i) {
+    const item = items[i];
+    if (!item) return;
+    const r = await measureOne(item);
+    // The list can be rebuilt while a measurement is in flight; make sure the
+    // answer is still about the announcement we asked about.
+    if (!r || items[i] !== item) return;
+    item._fit = { trimmed: !!r.trimmed, atFloor: !!r.atFloor, px: r.px };
+    patchCard(i);
+    if (i === selected) renderVerdict(item);
+  }
+
+  async function measureAll() {
+    for (let i = 0; i < items.length; i++) await measureItem(i);
+  }
+
+  const measureSelectedSoon = debounce(() => measureItem(selected), 280);
 
   /* ============================================================ preview == */
 
@@ -560,14 +660,10 @@
       token: ++previewToken,
       index: pos >= 0 ? pos : 0,
       total: deck.length,
-      slide: {
-        title: item.title,
-        body: item.body,
-        link: item.link,
-        linkLabel: item.linkLabel,
-        image: item.image,
-      },
+      slide: slidePayload(item),
     });
+
+    renderVerdict(item);
   }
 
   const pushPreviewSoon = debounce(pushPreview, 260);
@@ -577,28 +673,24 @@
    * the honest answer — it comes from the same measuring code the television
    * runs — where the length meter on the card is only an estimate.
    */
-  function onRendered(msg) {
-    if (msg.token !== previewToken) return;      // a stale reply; ignore it
-    if (msg.empty) return;                       // the welcome screen; nothing to judge
-
-    const item = items[selected];
-    if (!item) return;
-
-    // The measured answer, kept on the announcement so its card in the list
-    // stops estimating and starts reporting.
-    item._fit = { trimmed: !!msg.trimmed, atFloor: !!msg.atFloor };
-    patchCard(selected);
-
-    if (msg.trimmed) {
+  /** The sentence under the preview, written from the measured result. */
+  function renderVerdict(item) {
+    const fit = item && item._fit;
+    if (!fit) {
+      verdictEl.className = 'verdict';
+      verdictEl.textContent = 'Checking how this fits on the TV…';
+      return;
+    }
+    if (fit.trimmed) {
       verdictEl.className = 'verdict is-over';
       verdictEl.textContent =
         'Too long. The TV cut this short and pointed people at the bulletin — ' +
         'shorten it here and the whole thing will show.';
-    } else if (msg.atFloor) {
+    } else if (fit.atFloor || fit.px < SMALL_TEXT_PX) {
       verdictEl.className = 'verdict is-tight';
       verdictEl.textContent =
-        'This fits, but only at the smallest size allowed. Trimming a sentence ' +
-        'would make it easier to read from across the hall.';
+        'It all fits, but the text had to shrink to ' + Math.round(fit.px) +
+        'px to do it. Shortening it would make it easier to read from across the hall.';
     } else {
       verdictEl.className = 'verdict is-good';
       verdictEl.textContent = 'Fits comfortably, at a size that reads from across the hall.';
@@ -607,16 +699,27 @@
 
   global.addEventListener('message', e => {
     if (e.origin !== global.location.origin) return;
-    if (e.source !== frameEl.contentWindow) return;
     if (!e.data || typeof e.data !== 'object') return;
+
+    // The off-screen measuring frame. Its answers never touch the preview.
+    if (measureFrameEl && e.source === measureFrameEl.contentWindow) {
+      if (e.data.type === 'ready') {
+        measureReady = true;
+        measureAll();
+      } else if (e.data.type === 'rendered') {
+        const resolve = pendingMeasures.get(e.data.token);
+        if (resolve) { pendingMeasures.delete(e.data.token); resolve(e.data); }
+      }
+      return;
+    }
+
+    if (e.source !== frameEl.contentWindow) return;
 
     if (e.data.type === 'ready') {
       frameReady = true;
       scaleFrame();
       if (pendingPreview) { const m = pendingPreview; pendingPreview = null; send(m); }
       else pushPreview();
-    } else if (e.data.type === 'rendered') {
-      onRendered(e.data);
     }
   });
 
@@ -773,6 +876,17 @@
     renderBanner();
     pushPreview();
     saveDraft();
+    // Anything that rebuilds the whole list may have brought in announcements
+    // never measured before — a newsletter import, a fresh copy of the Sheet,
+    // a duplicate. Measuring is cheap and skipping it would leave those cards
+    // reading "Checking…" indefinitely.
+    measureUnmeasured();
+  }
+
+  async function measureUnmeasured() {
+    for (let i = 0; i < items.length; i++) {
+      if (!items[i]._fit) await measureItem(i);
+    }
   }
 
   /* ============================================================== editing == */
@@ -785,17 +899,6 @@
     const i = +card.dataset.i;
     const item = items[i];
     item[field] = e.target.value;
-
-    // The length bar's colour and note come from the last real measurement
-    // the preview sent back — but that measurement is now stale the instant
-    // any of these fields change, and typing keeps re-debouncing the preview
-    // that would refresh it. Left alone, the bar's fill would keep sliding
-    // as you type while its colour and wording sat frozen on whatever they
-    // said when you started — which reads as broken, not as "still
-    // checking". Falling back to the character estimate keeps it honestly
-    // responsive on every keystroke; it gets upgraded to the true answer the
-    // moment the preview catches up.
-    if (field === 'title' || field === 'body' || field === 'link') item._fit = null;
 
     // Typing a link with no caption yet: fill in a sensible one rather than
     // leaving the QR code on the TV captioned with nothing.
@@ -810,6 +913,7 @@
     renderStatus();
     saveDraft();
     pushPreviewSoon();
+    measureSelectedSoon();
   });
 
   listEl.addEventListener('change', e => {
@@ -987,7 +1091,14 @@
       ]);
 
       if (!result || !result.text || result.text.trim() === String(item.body || '').trim()) {
-        toast('Could not find anything to trim there');
+        // Say what to do next rather than just reporting failure. On dense
+        // parish notices — dates, times, costs, names — there is often no
+        // filler wording to remove, and "nothing to trim" on its own reads
+        // as the button being broken when it is actually being honest.
+        const fit = item._fit;
+        toast(fit && fit.trimmed
+          ? 'No filler wording to remove here — this one needs a human cut. Keep the date, time and who to contact; send the rest to the bulletin.'
+          : 'Nothing to trim — every word here is carrying information.');
         return;
       }
       renderTightenPanel(panel, result);
