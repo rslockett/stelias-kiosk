@@ -41,26 +41,46 @@ body {
   cursor: none;                     /* no mouse pointer on the TV */
 }
 
-/* The ornate parish cross, sitting well back behind everything. */
+/* The ornate parish cross, echoed softly in all four corners rather than
+   sitting once on the right — reads as a deliberate frame instead of a
+   single stray watermark. */
 body::before {
   content: '';
   position: fixed;
-  right: -14vh;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 92vh;
-  height: 92vh;
-  background: url('../img/cross-byzantine.png') center / contain no-repeat;
-  opacity: 0.055;
+  inset: -10vh;
+  background-image:
+    url('../img/cross-byzantine.png'), url('../img/cross-byzantine.png'),
+    url('../img/cross-byzantine.png'), url('../img/cross-byzantine.png');
+  background-repeat: no-repeat;
+  background-position: top -10vh left -10vh, top -10vh right -10vh,
+                        bottom -10vh left -10vh, bottom -10vh right -10vh;
+  background-size: 46vh 46vh;
+  opacity: 0.07;
   pointer-events: none;
   z-index: 0;
 }
 
-body::after {                        /* subtle warmth toward the bottom */
+/* A warmer, more layered ground than flat cream: a soft gold glow behind
+   the top bar, deepening toward the bottom — the same feeling as the warm,
+   lamp-lit photography on the parish website, without needing a photo. */
+body::after {
   content: '';
   position: fixed;
   inset: 0;
-  background: linear-gradient(180deg, transparent 45%, var(--cream-deep) 100%);
+  background:
+    radial-gradient(120vh 60vh at 50% -10%, rgba(227, 191, 119, 0.16), transparent 60%),
+    linear-gradient(180deg, transparent 40%, var(--cream-deep) 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* A quiet frame line just inside the safe area — the "icon border" feeling
+   the corner crosses set up, closed into a complete rectangle. */
+.frame::before {
+  content: '';
+  position: absolute;
+  inset: 1.1vh;
+  border: 1px solid rgba(213, 146, 11, 0.22);
   pointer-events: none;
   z-index: 0;
 }
@@ -168,8 +188,7 @@ body::after {                        /* subtle warmth toward the bottom */
 
 /* Layout 1 — words only. Centred and given the whole screen. */
 .slide--text  { grid-template-columns: 1fr; }
-.slide--text .slide__fit { text-align: center; max-width: 84%; margin: 0 auto; }
-.slide--text .slide__rule { margin-left: auto; margin-right: auto; }
+.slide--text .slide__fit { max-width: 84%; margin: 0 auto; }
 
 /* Layout 2 — words on the left, QR panel on the right. */
 .slide--qr { grid-template-columns: 1fr auto; }
@@ -194,8 +213,10 @@ body::after {                        /* subtle warmth toward the bottom */
 }
 
 /* Font size on this element is set by the fitting routine in slide.js.
-   Everything inside is sized in em so it all scales together. */
-.slide__fit { width: 100%; }
+   Everything inside is sized in em so it all scales together. Centred by
+   default — a QR or photo slide's text column reads better centred within
+   itself than jammed against the frame edge. */
+.slide__fit { width: 100%; text-align: center; }
 
 .slide__title {
   margin: 0;
@@ -208,13 +229,29 @@ body::after {                        /* subtle warmth toward the bottom */
 }
 
 .slide__rule {
+  position: relative;
   width: 2.6em;
   height: 0.09em;
   min-height: 2px;
-  margin: 0.5em 0;
+  margin: 0.6em auto;
   background: linear-gradient(90deg, var(--gold-deep), var(--gold));
   border-radius: 2px;
 }
+
+/* Small diamond ticks at each end — the rule reads as an ornament rather
+   than a plain divider line. */
+.slide__rule::before,
+.slide__rule::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 0.4em;
+  height: 0.4em;
+  background: var(--gold-deep);
+  transform: translateY(-50%) rotate(45deg);
+}
+.slide__rule::before { left: -0.02em; }
+.slide__rule::after  { right: -0.02em; }
 
 .slide__body {
   font-size: 1em;
@@ -230,6 +267,10 @@ body::after {                        /* subtle warmth toward the bottom */
   margin: 0 0 0.5em;
   padding-left: 1.1em;
   list-style: none;
+  text-align: left;
+  max-width: max-content;
+  margin-left: auto;
+  margin-right: auto;
 }
 .slide__list li { margin: 0 0 0.3em; position: relative; }
 .slide__list li::before {
@@ -287,7 +328,9 @@ body::after {                        /* subtle warmth toward the bottom */
   background: #fff;
   border: 1px solid var(--gold);
   border-radius: 4px;
-  box-shadow: 0 1.4vh 3.4vh rgba(54, 46, 48, 0.14);
+  /* A thin inset gold line, set a little in from the outer border — the
+     same "double rule" framing an icon border uses. */
+  box-shadow: 0 1.4vh 3.4vh rgba(54, 46, 48, 0.14), inset 0 0 0 3px rgba(213, 146, 11, 0.4);
   line-height: 0;
 }
 
