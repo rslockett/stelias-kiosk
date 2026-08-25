@@ -516,22 +516,29 @@
   }
 
   /**
-   * The ticked announcements as a grid of plain values, one row each, in the
-   * Sheet's column order. Both the clipboard copy and the direct publish work
-   * from this, so the two routes can never drift apart.
+   * The announcements as a grid of plain values, one row each, in the Sheet's
+   * column order. Both the clipboard copy and the direct publish work from
+   * this, so the two routes can never drift apart.
+   *
+   * Switched-off announcements are written out too, with FALSE in the Show
+   * column, rather than being dropped. The Sheet is what every editor sees,
+   * so it has to carry the whole picture: an announcement somebody decided
+   * not to run is a decision, and deleting it silently would hide that
+   * decision from the next person and lose the text they would need to undo
+   * it. Blank rows are still dropped — those are nothing at all.
    */
   function toMatrix(items) {
     return items
-      .filter(it => it.include !== false)
+      .filter(it => String(it.title || '').trim() || String(it.body || '').trim())
       .map((it, i) => [
-        '',                 // Show — blank means show it
+        it.include === false ? 'FALSE' : '',   // Show — blank means show it
         it.title,
         it.body,
         it.link,
         it.link ? it.linkLabel : '',
-        '',                 // Start
+        it.start || '',
         it.end || '',
-        '',                 // Image
+        it.image || '',
         String(i + 1),      // Order
       ]);
   }

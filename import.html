@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>St. Elias — Announcement Importer</title>
+<title>St. Elias — Coffee Hour Screen</title>
 
 <link rel="stylesheet" href="assets/css/fonts.css">
 <link rel="stylesheet" href="assets/css/admin.css">
@@ -11,141 +11,145 @@
 </head>
 <body>
 
-<header class="head">
-  <div class="wrap head__inner">
-    <span class="head__mark" role="img" aria-label="St. Elias monogram"></span>
-    <div>
-      <h1 class="head__title">St. Elias — Announcement Importer</h1>
-      <p class="head__sub">Turn the weekly email into slides</p>
+<!-- ================================================================ app bar -->
+<header class="appbar">
+  <div class="appbar__inner">
+    <span class="appbar__mark" role="img" aria-label="St. Elias monogram"></span>
+    <div class="appbar__id">
+      <p class="appbar__title">Coffee Hour Screen</p>
+      <p class="appbar__sub">St. Elias Orthodox Church</p>
     </div>
-    <a class="head__link" href="index.html" target="_blank" rel="noopener">Open the kiosk ↗</a>
+    <nav class="appbar__right">
+      <button class="chip" id="editor-chip" type="button" title="Your name is shown to the others as the last person who published">Set your name</button>
+      <a class="chip" id="sheet-link" href="#" target="_blank" rel="noopener" hidden>The Sheet ↗</a>
+      <a class="chip" href="index.html" target="_blank" rel="noopener">The TV screen ↗</a>
+    </nav>
   </div>
 </header>
 
-<main class="wrap">
-
-  <!-- ------------------------------------------------------------ step 1 -->
-  <section class="step">
-    <div class="step__head">
-      <span class="step__num">Step 1</span>
-      <h2 class="step__title">Paste the weekly email</h2>
+<!-- ============================================================= status bar -->
+<div class="statusbar" id="statusbar" data-state="loading">
+  <div class="statusbar__inner">
+    <span class="pill" id="status-pill">Checking…</span>
+    <div class="statusbar__text">
+      <p class="statusbar__line" id="status-line">Reading what's on the TV right now</p>
+      <p class="statusbar__sub" id="status-sub"></p>
     </div>
-    <p class="step__hint">
-      The best way is to save the email as a file and drop it here — that keeps
-      the headings and links intact, so the split comes out much cleaner.
-      In Gmail, open the newsletter, click the <strong>⋮</strong> menu at the top
-      right of the message, and choose <strong>Download message</strong>. You'll
-      get a <code>.eml</code> file.
-    </p>
-
-    <div class="drop" id="drop">
-      <p class="drop__title">Drop the <code>.eml</code> file here</p>
-      <p class="drop__or">or <button class="btn btn--ghost btn--sm" id="pick-btn">choose a file</button></p>
-      <input type="file" id="file" accept=".eml,message/rfc822,text/plain" hidden>
+    <div class="statusbar__actions">
+      <button class="btn btn--ghost btn--sm" id="discard-btn" type="button" hidden>Undo my changes</button>
+      <button class="btn btn--primary" id="publish-btn" type="button" disabled>Make it live</button>
     </div>
+  </div>
+</div>
 
-    <details class="fold">
-      <summary>Or paste the text instead</summary>
-      <p class="step__hint" style="margin-top:.8rem">
-        Copying and pasting works too, but Gmail throws away the formatting that
-        marks headings, so you'll have more tidying up to do.
-      </p>
-      <textarea id="paste" placeholder="Paste the whole email here…"></textarea>
-      <div class="row">
-        <button class="btn btn--primary" id="split-btn">Split pasted text</button>
-        <button class="btn btn--ghost" id="sample-btn">Use a sample email</button>
+<!-- A conflict, a restored draft, a publish that hasn't landed — one at a time. -->
+<div class="banner" id="banner" hidden>
+  <div class="banner__inner">
+    <p class="banner__text" id="banner-text"></p>
+    <div class="banner__actions" id="banner-actions"></div>
+  </div>
+</div>
+
+<!-- ============================================================== workspace -->
+<main class="workspace">
+
+  <!-- The preview comes first in the markup so that on a narrow screen, where
+       the two panels stack, the television is the thing at the top and can
+       stay stuck there while the list scrolls underneath it. On a wide screen
+       the stylesheet puts it back on the right. -->
+
+  <!-- ---------------------------------------------------------- the preview -->
+  <aside class="panel panel--preview">
+    <div class="preview" id="preview">
+      <div class="preview__head">
+        <p class="preview__title">On the TV</p>
+        <span class="preview__pos" id="preview-pos"></span>
       </div>
-    </details>
 
-    <div class="row">
-      <button class="btn btn--ghost" id="clear-btn">Clear everything</button>
+      <div class="tv">
+        <div class="tv__screen" id="tv-screen">
+          <iframe id="preview-frame" src="preview.html" title="What this announcement looks like on the TV"></iframe>
+        </div>
+        <div class="tv__veil" id="tv-veil" hidden><span id="tv-veil-text"></span></div>
+      </div>
+
+      <div class="preview__controls">
+        <button class="btn btn--ghost btn--sm" id="prev-btn" type="button" title="Previous slide">←</button>
+        <button class="btn btn--ghost btn--sm" id="play-btn" type="button">Play all</button>
+        <button class="btn btn--ghost btn--sm" id="next-btn" type="button" title="Next slide">→</button>
+      </div>
+
+      <p class="verdict" id="verdict"></p>
     </div>
+  </aside>
 
-    <div id="source-note"></div>
-  </section>
+  <!-- ------------------------------------------------------------- the list -->
+  <section class="panel panel--list">
 
-  <!-- ------------------------------------------------------------ step 2 -->
-  <section class="step">
-    <div class="step__head">
-      <span class="step__num">Step 2</span>
-      <h2 class="step__title">Check each announcement</h2>
-    </div>
-    <p class="step__hint">
-      A weekly newsletter holds far more than belongs on a coffee hour screen.
-      Untick anything that isn't worth a slide, edit what came out wrong, and
-      watch the length bar — an announcement that runs over gets trimmed on the
-      TV, so it's better to shorten it here.
-    </p>
-
-    <div class="row" id="bulk" hidden>
-      <button class="btn btn--ghost btn--sm" id="all-btn">Tick all</button>
-      <button class="btn btn--ghost btn--sm" id="none-btn">Untick all</button>
+    <div class="toolbar">
+      <button class="btn btn--primary btn--sm" id="import-toggle" type="button">
+        Import the weekly email
+      </button>
+      <button class="btn btn--ghost btn--sm" id="add-btn" type="button">+ Add an announcement</button>
       <span class="count" id="count"></span>
-    </div>
-
-    <div id="cards" class="cards"></div>
-
-    <div class="empty-state" id="cards-empty">
-      Nothing yet. Paste an email above and press “Split into announcements”.
-    </div>
-
-    <div class="row">
-      <button class="btn btn--ghost btn--sm" id="add-btn" hidden>+ Add a blank announcement</button>
-    </div>
-  </section>
-
-  <!-- ------------------------------------------------------------ step 3 -->
-  <section class="step">
-    <div class="step__head">
-      <span class="step__num">Step 3</span>
-      <h2 class="step__title">Put them in the Sheet</h2>
-    </div>
-
-    <!-- Shown only once publishUrl / publishSecret are set in config.js -->
-    <div id="publish-block" hidden>
-      <div class="row">
-        <button class="btn btn--primary" id="publish-btn">Publish to the Sheet</button>
-        <a class="btn btn--ghost" id="open-sheet-link" href="#" target="_blank" rel="noopener" hidden>Open the Sheet ↗</a>
-      </div>
-      <p class="step__hint" id="publish-status" style="margin-top:.6rem"></p>
-
-      <details class="fold">
-        <summary>Copy rows by hand instead</summary>
-        <div class="row" style="margin-top:.8rem">
-          <button class="btn btn--ghost" id="copy-btn" disabled>Copy rows for the Sheet</button>
-          <button class="btn btn--ghost" id="copy-header-btn" disabled>Copy with header row</button>
+      <details class="menu">
+        <summary class="menu__btn" title="Other ways to get these into the Sheet">⋯</summary>
+        <div class="menu__body">
+          <p class="menu__hint">
+            If “Make it live” ever fails, these always work — copy the rows and
+            paste them into the Sheet at cell <code>A2</code> yourself.
+          </p>
+          <button class="btn btn--ghost btn--sm" id="copy-btn" type="button">Copy rows for the Sheet</button>
+          <button class="btn btn--ghost btn--sm" id="copy-header-btn" type="button">Copy with the header row</button>
+          <hr class="menu__rule">
+          <button class="btn btn--ghost btn--sm" id="reload-btn" type="button">Reload from the Sheet</button>
         </div>
       </details>
     </div>
 
-    <!-- Shown when one-click publish isn't configured -->
-    <div id="copy-block">
+    <!-- Opened by the toolbar button; closed the rest of the time. -->
+    <section class="importer" id="importer" hidden>
+      <p class="importer__hint">
+        In Gmail, open the newsletter, click the <strong>⋮</strong> menu at the top
+        right of the message and choose <strong>Download message</strong>. Drop the
+        <code>.eml</code> file here.
+      </p>
+
+      <div class="drop" id="drop">
+        <p class="drop__title">Drop the <code>.eml</code> file here</p>
+        <p class="drop__or">or <button class="btn btn--ghost btn--sm" id="pick-btn" type="button">choose a file</button></p>
+        <input type="file" id="file" accept=".eml,message/rfc822,text/plain" hidden>
+      </div>
+
+      <details class="fold">
+        <summary>Paste the text instead</summary>
+        <p class="importer__hint" style="margin-top:.8rem">
+          Copy and paste works, but Gmail throws away the formatting that marks
+          headings, so there is more tidying up to do afterwards.
+        </p>
+        <textarea id="paste" placeholder="Paste the whole email here…"></textarea>
+        <div class="row">
+          <button class="btn btn--primary btn--sm" id="split-btn" type="button">Read this text</button>
+          <button class="btn btn--ghost btn--sm" id="sample-btn" type="button">Use a sample email</button>
+        </div>
+      </details>
+    </section>
+
+    <!-- Shown after a newsletter is read, to ask what to do with it. -->
+    <div class="landing" id="landing" hidden>
+      <p class="landing__text" id="landing-text"></p>
       <div class="row">
-        <button class="btn btn--primary" id="copy-btn-main" disabled>Copy rows for the Sheet</button>
-        <button class="btn btn--ghost" id="copy-header-btn-main" disabled>Copy with header row</button>
-      </div>
-
-      <div class="note">
-        <p><strong>Then:</strong></p>
-        <ol class="ol">
-          <li>Open the announcements Google Sheet.</li>
-          <li>Select every old row under the headers and delete them.</li>
-          <li>Click cell <code>A2</code> and paste.</li>
-        </ol>
-        <p>
-          The TV picks up the change on its own within a few minutes. Nobody needs
-          to touch the Raspberry Pi.
-        </p>
-      </div>
-
-      <div class="note">
-        <p>
-          Want to skip this copy-and-paste step? <code>sheet/Code.gs</code> adds a
-          one-click <strong>Publish</strong> button here instead — a five-minute,
-          one-time setup. See the README for the steps.
-        </p>
+        <button class="btn btn--primary btn--sm" id="landing-replace" type="button">Replace everything</button>
+        <button class="btn btn--ghost btn--sm" id="landing-append" type="button">Add to the end</button>
+        <button class="btn btn--ghost btn--sm" id="landing-cancel" type="button">Cancel</button>
       </div>
     </div>
+
+    <div class="list" id="list"></div>
+
+    <p class="empty-state" id="list-empty" hidden>
+      Nothing here yet. Import the weekly email, or add an announcement by hand.
+    </p>
   </section>
 
 </main>
@@ -157,6 +161,7 @@
 <script src="assets/js/deck.js"></script>
 <script src="assets/js/qrcode.js"></script>
 <script src="assets/js/slide.js"></script>
+<script src="assets/js/live.js"></script>
 <script src="assets/js/eml.js"></script>
 <script src="assets/js/import.js"></script>
 <script src="assets/js/import-ui.js"></script>

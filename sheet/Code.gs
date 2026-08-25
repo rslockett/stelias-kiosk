@@ -32,6 +32,13 @@ var SHEET_NAME = '';                      // blank = the first tab in the file
 
 var HEADERS = ['Show', 'Title', 'Body', 'Link', 'Link Label', 'Start', 'End', 'Image', 'Order'];
 
+// Two extra columns, written after the announcements, recording who last put
+// something on the screen and when. The television ignores columns it does not
+// recognise; the editor reads these so that everybody working on the
+// announcements can see whether somebody else got there first.
+var STAMP_HEADERS = ['Published By', 'Published At'];
+var TOTAL_WIDTH = HEADERS.length + STAMP_HEADERS.length;
+
 function doPost(e) {
   try {
     var payload = JSON.parse(e.postData.contents);
@@ -53,6 +60,7 @@ function doPost(e) {
 
     ensureHeaders(sheet);
     replaceRows(sheet, payload.rows);
+    stampPublisher(sheet, payload.by);
 
     return jsonOut({ ok: true, rowsWritten: payload.rows.length });
   } catch (err) {
@@ -66,11 +74,17 @@ function doGet() {
 }
 
 function ensureHeaders(sheet) {
-  var firstRow = sheet.getRange(1, 1, 1, HEADERS.length).getValues()[0];
-  var hasHeaders = firstRow.some(function (v) { return String(v).trim() !== ''; });
-  if (!hasHeaders) {
-    sheet.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]);
+  var all = HEADERS.concat(STAMP_HEADERS);
+  var firstRow = sheet.getRange(1, 1, 1, TOTAL_WIDTH).getValues()[0];
+
+  // Only fill in what is missing, so a Sheet somebody has already renamed a
+  // column in is not quietly overwritten. The two stamp columns are new, and
+  // will be blank on a Sheet set up before this feature existed.
+  var changed = false;
+  for (var i = 0; i < all.length; i++) {
+    if (String(firstRow[i]).trim() === '') { firstRow[i] = all[i]; changed = true; }
   }
+  if (changed) sheet.getRange(1, 1, 1, TOTAL_WIDTH).setValues([firstRow]);
 }
 
 /**
@@ -81,7 +95,7 @@ function ensureHeaders(sheet) {
 function replaceRows(sheet, rows) {
   var lastRow = sheet.getLastRow();
   if (lastRow > 1) {
-    sheet.getRange(2, 1, lastRow - 1, HEADERS.length).clearContent();
+    sheet.getRange(2, 1, lastRow - 1, TOTAL_WIDTH).clearContent();
   }
   if (rows.length > 0) {
     var width = HEADERS.length;
@@ -92,6 +106,23 @@ function replaceRows(sheet, rows) {
     });
     sheet.getRange(2, 1, normalized.length, width).setValues(normalized);
   }
+}
+
+/**
+ * Record who published, in the first data row of the two stamp columns.
+ *
+ * This is the only thing in the whole system that says which of the three
+ * people editing announcements acted last, and it is what lets the editor
+ * tell somebody "Fr. Elias published twenty minutes ago" instead of leaving
+ * them guessing whether their copy is current.
+ *
+ * The name is whatever the person typed into the editor. It identifies a
+ * colleague to colleagues; it is not a login and does not pretend to be.
+ */
+function stampPublisher(sheet, name) {
+  var who = String(name == null ? '' : name).slice(0, 60);
+  sheet.getRange(2, HEADERS.length + 1, 1, STAMP_HEADERS.length)
+       .setValues([[who, new Date().toISOString()]]);
 }
 
 function jsonOut(obj) {
