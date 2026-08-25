@@ -177,13 +177,21 @@
    */
   function watchForConfirmation(iso, name, li, statusEl) {
     const deadline = Date.now() + 5 * 60 * 1000;
+    let failCount = 0;
 
     const tick = async () => {
       let slots;
       try {
         slots = await fetchSlots();
+        failCount = 0;
       } catch (e) {
         slots = null;
+        failCount++;
+        // Google's published CSV can 404 for a few seconds right after a
+        // write — don't leave the button looking frozen while that clears.
+        if (failCount >= 2) {
+          statusEl.textContent = 'Still trying to confirm — the sign-up sheet isn’t responding yet. This can take a minute.';
+        }
       }
 
       if (slots) {
