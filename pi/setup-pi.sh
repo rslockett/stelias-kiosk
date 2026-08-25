@@ -134,7 +134,11 @@ if command -v unclutter >/dev/null 2>&1; then
   unclutter -idle 0.5 -root &
 fi
 
+# --password-store=basic: without it, Chromium tries to unlock the OS
+# keyring on launch, and on a Pi with no keyring set up yet that opens a
+# blocking "choose a password" dialog that sits on top of the kiosk forever.
 exec "\$CHROMIUM_BIN" \\
+  --password-store=basic \\
   --kiosk \\
   --noerrdialogs \\
   --disable-infobars \\
