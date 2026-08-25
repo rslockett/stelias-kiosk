@@ -209,6 +209,34 @@
     return out.join('\n');
   }
 
+  const BULLET_RE = /^\s*(?:[-•*·]|\d+[.)])\s+/;
+  // "Fr. Elias Murphy, Pastor – fr.elias@..." / "Cost: $125" — a separator
+  // partway through the line, the shape of one entry in a directory or list.
+  const LISTY_SEP = /\s[–—-]\s|:\s+\S/;
+
+  /**
+   * A run of short "deliberate" lines (see unwrapParagraphs above) that each
+   * look like one entry in a list — names and emails, line items, and the
+   * like — reads as a jumble stacked into plain paragraphs. Turn it into a
+   * real bullet list instead, the same as if someone had typed "-" by hand.
+   * Only fires when *every* line in the run matches, so ordinary short
+   * paragraphs (a service time, a one-line notice) are left alone.
+   */
+  function autoBulletize(text) {
+    const paragraphs = String(text).split(/\n\s*\n/);
+    return paragraphs.map(p => {
+      const lines = p.split('\n').filter(l => l.trim());
+      if (lines.length < 2) return p;
+      if (lines.some(l => BULLET_RE.test(l))) return p;
+      // A real directory/list entry reads in one glance. A heading line
+      // followed by a full descriptive paragraph can also match the
+      // separator test below, so rule those out by length first.
+      if (lines.some(l => l.length > 100)) return p;
+      if (!lines.every(l => LISTY_SEP.test(l))) return p;
+      return lines.map(l => '- ' + l.trim()).join('\n');
+    }).join('\n\n');
+  }
+
   /* ----------------------------------------------------------- masthead -- */
 
   const letters = s => String(s).toLowerCase().replace(/[^a-z]/g, '');
@@ -280,7 +308,7 @@
         // Pull the URL out first: while it is still on its own line, removing
         // it also cleanly removes the "Sign up here:" that introduced it.
         const { link, body } = extractLink(b.body);
-        const text = unwrapParagraphs(body);
+        const text = autoBulletize(unwrapParagraphs(body));
         return {
           title: b.title,
           body: text,
@@ -399,7 +427,7 @@
         // No rejoining here: these lines came from real block and <br>
         // boundaries in the HTML, so a short line is a deliberate one — a
         // service time, a name, an address — not an accident of wrapping.
-        body: unwrapParagraphs(body, { rejoinWrapped: false }),
+        body: autoBulletize(unwrapParagraphs(body, { rejoinWrapped: false })),
         link: finalLink,
         linkLabel: finalLink ? (global.KIOSK_CONFIG.defaultQrLabel || 'Scan to sign up') : '',
         end: findDate(g.title + '\n' + body),
@@ -478,7 +506,7 @@
 
   global.Importer = {
     split, splitEml, splitBlocks, cleanup, toTsv, toMatrix, findDate, extractLink,
-    looksLikeHeading, cleanHeading, unwrapParagraphs, COLUMNS,
+    looksLikeHeading, cleanHeading, unwrapParagraphs, autoBulletize, COLUMNS,
   };
 
 })(window);

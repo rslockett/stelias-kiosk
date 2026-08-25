@@ -132,6 +132,7 @@
 
   function isTrackingUrl(url) {
     if (!url) return false;
+    if (/^mailto:/i.test(url)) return false;   // always short, never a tracking wrapper
     if (url.length > 150) return true;
     try {
       const host = new URL(url).hostname.toLowerCase();
@@ -198,6 +199,29 @@
     return sawText;
   }
 
+  /**
+   * Collapse a block's text nodes into runs of consecutive same-boldness text,
+   * e.g. ["Men's Book Study:" (bold), " continues with session 5..." (plain)].
+   * Newsletters composed in Word routinely bold just the sub-heading and leave
+   * the rest of the same paragraph plain, so a whole-block bold test alone
+   * mislabels the paragraph as "not a heading" and it gets swallowed into
+   * whatever announcement came before it.
+   */
+  function textRuns(block) {
+    const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT, null);
+    const runs = [];
+    let node;
+    while ((node = walker.nextNode())) {
+      const v = node.nodeValue;
+      if (!v || !v.trim()) continue;
+      const bold = isBoldish(node.parentElement, block);
+      const last = runs[runs.length - 1];
+      if (last && last.bold === bold) last.text += v;
+      else runs.push({ bold, text: v });
+    }
+    return runs;
+  }
+
   function cleanText(s) {
     return String(s)
       .replace(/ /g, ' ')
@@ -228,21 +252,43 @@
     const all = Array.from(doc.body ? doc.body.querySelectorAll(BLOCK_SEL) : []);
     const leaves = all.filter(el => !el.querySelector(BLOCK_SEL));
 
+    const linkIn = el => {
+      const a = el.querySelector('a[href^="http"], a[href^="mailto:"]');
+      if (!a) return { link: '', tracking: false };
+      const href = a.getAttribute('href');
+      if (/^mailto:/i.test(href)) return { link: href, tracking: false };
+      const picked = bestUrl(href, a.textContent + ' ' + el.textContent);
+      return { link: picked.url, tracking: picked.tracking };
+    };
+
     const blocks = [];
     for (const el of leaves) {
       const text = cleanText(el.textContent);
       if (!text) continue;
 
-      let link = '';
-      let tracking = false;
-      const a = el.querySelector('a[href^="http"]');
-      if (a) {
-        const picked = bestUrl(a.getAttribute('href'), a.textContent + ' ' + text);
-        link = picked.url;
-        tracking = picked.tracking;
+      if (blockIsBold(el)) {
+        const { link, tracking } = linkIn(el);
+        blocks.push({ text, bold: true, link, tracking });
+        continue;
       }
 
-      blocks.push({ text, bold: blockIsBold(el), link, tracking });
+      // Not fully bold — check for a bold sub-heading fused into the same
+      // paragraph as its body text ("**Title:** the rest of the sentence..."),
+      // and split it into a heading block plus a body block.
+      const runs = textRuns(el);
+      const lead = runs[0];
+      const leadTitle = lead && lead.bold ? cleanText(lead.text) : '';
+      const rest = runs.length > 1 ? cleanText(runs.slice(1).map(r => r.text).join('')) : '';
+
+      if (leadTitle && leadTitle.length >= 2 && leadTitle.length <= 90 && rest) {
+        blocks.push({ text: leadTitle, bold: true, link: '', tracking: false });
+        const { link, tracking } = linkIn(el);
+        blocks.push({ text: rest, bold: false, link, tracking });
+        continue;
+      }
+
+      const { link, tracking } = linkIn(el);
+      blocks.push({ text, bold: false, link, tracking });
     }
 
     // Collapse consecutive duplicates, which Word-pasted markup produces a lot of.
