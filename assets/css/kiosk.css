@@ -357,6 +357,18 @@ body::after {
 /* --------------------------------------------------------------- signup -- */
 
 .slide--signup { grid-template-columns: 1fr auto; }
+
+/* With a photo, the layout matches an announcement's own image layout —
+   words on the left, photo above the QR code on the right — reusing
+   .slide__image and .slide__qr exactly as that layout already styles them. */
+.slide--signup.has-image {
+  grid-template-columns: 1fr 32%;
+  grid-template-rows: 1fr auto;
+}
+.slide--signup.has-image .slide__main  { grid-column: 1; grid-row: 1 / 3; }
+.slide--signup.has-image .slide__image { grid-column: 2; grid-row: 1; }
+.slide--signup.has-image .slide__qr    { grid-column: 2; grid-row: 2; }
+
 /* Sized directly in vh rather than through the shrink-to-fit routine — a
    fixed list of Sundays doesn't need the binary search prose gets, and
    signupWeeksAhead keeps the row count, and so this size, sane. */

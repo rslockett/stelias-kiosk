@@ -80,17 +80,23 @@ window.KIOSK_CONFIG = {
      redirect link here instead (e.g. from tinyurl.com) that points at it —
      the kiosk only ever displays whatever URL is entered here.
 
+     image is optional — a photo shown on the TV slide, same as an
+     announcement's Image column. Leave it blank for a words-and-QR-only
+     slide.
+
      Leave a pair blank to leave that sign-up off the TV entirely.
   -------------------------------------------------------------------------- */
 
   coffeeHour: {
     csvUrl: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRKHWTgqqt76qjc_U3VU9xdNLUJpDKjnnl2o_Hm7g85vC_Zy8-Hhiir28naTV25GW98_PWvjHF26hj5/pub?gid=834317076&single=true&output=csv',
     signupUrl: 'https://tinyurl.com/28u86tec',
+    image: '',
   },
 
   holyBread: {
     csvUrl: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRKHWTgqqt76qjc_U3VU9xdNLUJpDKjnnl2o_Hm7g85vC_Zy8-Hhiir28naTV25GW98_PWvjHF26hj5/pub?gid=637926506&single=true&output=csv',
     signupUrl: 'https://tinyurl.com/2awroxfv',
+    image: '',
   },
 
   // How many upcoming Sundays to show, both on the TV and on signup.html.

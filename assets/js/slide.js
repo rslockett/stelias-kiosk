@@ -166,8 +166,9 @@
    * each row is sized in vh like everything else here.
    */
   function buildSignupSlideEl(slide) {
+    const hasImg = !!slide.image;
     const el = document.createElement('article');
-    el.className = 'slide slide--signup';
+    el.className = 'slide slide--signup' + (hasImg ? ' has-image' : '');
 
     const rowsHtml = slide.entries.map(entry => {
       const fastBadge = entry.fastName
@@ -192,7 +193,13 @@
         '</div></aside>'
       : '';
 
+    const imgHtml = hasImg
+      ? '<div class="slide__image"><img src="' + escapeHtml(slide.image) +
+        '" alt="" loading="eager"></div>'
+      : '';
+
     el.innerHTML =
+      imgHtml +
       '<div class="slide__main">' +
         '<div class="slide__fit">' +
           '<h2 class="slide__title">' + escapeHtml(slide.title) + '</h2>' +

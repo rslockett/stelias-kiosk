@@ -43,8 +43,11 @@
   function tickClock() {
     if (!CFG.showClock) return;
     const now = new Date();
+    // hour12 is explicit rather than left to the locale default — some
+    // devices (the Pi included, depending on its system locale) default
+    // toLocaleTimeString to 24-hour time otherwise.
     clockTimeEl.textContent = now
-      .toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+      .toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })
       .replace(/\s?([AP])M/i, (_, p) => ' ' + p.toLowerCase() + 'm');
     clockDateEl.textContent = now.toLocaleDateString([], {
       weekday: 'long', month: 'long', day: 'numeric',
@@ -258,6 +261,7 @@
       title: 'Coffee Hour Sign-Up',
       subtitle: 'Hosts needed — sign up for a Sunday',
       csvUrl: CFG.coffeeHour.csvUrl,
+      image: CFG.coffeeHour.image,
       qrUrl: CFG.coffeeHour.signupUrl,
       qrLabel: 'Scan to sign up to host',
       markFasting: true,
@@ -268,6 +272,7 @@
       title: 'Holy Bread Sign-Up',
       subtitle: 'Bake the prosphora for a Sunday Liturgy',
       csvUrl: CFG.holyBread.csvUrl,
+      image: CFG.holyBread.image,
       qrUrl: CFG.holyBread.signupUrl,
       qrLabel: 'Scan to sign up to bake',
       markFasting: false,

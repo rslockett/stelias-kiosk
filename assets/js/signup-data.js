@@ -130,6 +130,7 @@
         title: opts.title,
         subtitle: opts.subtitle,
         entries,
+        image: opts.image,
         qrUrl: opts.qrUrl,
         qrLabel: opts.qrLabel,
       };
