@@ -183,6 +183,7 @@ textarea:focus, input[type="text"]:focus {
 }
 
 .field textarea { min-height: 96px; resize: vertical; }
+.field textarea.field--compact { min-height: 2.6rem; }
 
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; }
 .grid3 { display: grid; grid-template-columns: 2fr 1.4fr 1fr; gap: 0.7rem; }

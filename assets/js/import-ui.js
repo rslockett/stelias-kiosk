@@ -69,23 +69,30 @@
   /* ----------------------------------------------------------- link check -- */
 
   /**
+   * A card can carry more than one QR code (one per Link/Link Label line —
+   * see slide.js's parseLinkPairs). Check every line, not just the first.
+   */
+  function denseUrls(item) {
+    return global.Importer.linkPairs(item.link, item.linkLabel)
+      .map(p => p.url)
+      .filter(url => {
+        if (global.Eml && global.Eml.isTrackingUrl(url)) return true;
+        return global.Slide.qrDensity(url) >= 45;
+      });
+  }
+
+  /**
    * Warn about links that will make a QR code nobody can scan. A long
    * tracking URL produces a very dense symbol, and dense symbols need the
    * viewer to walk right up to the television.
    */
   function linkWarning(item) {
     if (!item.link) return '';
-    if (global.Eml && global.Eml.isTrackingUrl(item.link)) {
-      return 'This is a click-tracking link, ' + item.link.length + ' characters long. ' +
-             'Its QR code will be too dense to scan from across the hall — ' +
-             'replace it with the plain web address it points to.';
-    }
-    const modules = global.Slide.qrDensity(item.link);
-    if (modules >= 45) {
-      return 'This link is long (' + item.link.length + ' characters), so the QR code ' +
-             'will be dense. A shorter address scans from further away.';
-    }
-    return '';
+    const dense = denseUrls(item);
+    if (!dense.length) return '';
+    const many = global.Importer.linkPairs(item.link, item.linkLabel).length > 1;
+    return (many ? dense.length + ' of this card’s links are' : 'This link is') +
+      ' long enough to make a QR code too dense to scan from across the hall.';
   }
 
   /* ---------------------------------------------------------------- cards -- */
@@ -128,12 +135,12 @@
 
       '<div class="grid3">' +
         '<div class="field">' +
-          '<label class="field__label">Signup link (becomes a QR code)</label>' +
-          '<input type="text" data-f="link" value="' + esc(item.link) + '" placeholder="https://forms.gle/…">' +
+          '<label class="field__label">Signup link (one per line for several QR codes)</label>' +
+          '<textarea class="field--compact" rows="2" data-f="link" placeholder="https://forms.gle/…">' + esc(item.link) + '</textarea>' +
         '</div>' +
         '<div class="field">' +
-          '<label class="field__label">QR caption</label>' +
-          '<input type="text" data-f="linkLabel" value="' + esc(item.linkLabel) + '" placeholder="Scan to sign up">' +
+          '<label class="field__label">QR caption (matching line per link)</label>' +
+          '<textarea class="field--compact" rows="2" data-f="linkLabel" placeholder="Scan to sign up">' + esc(item.linkLabel) + '</textarea>' +
         '</div>' +
         '<div class="field">' +
           '<label class="field__label">Remove after</label>' +
@@ -143,7 +150,7 @@
 
       (warn ?
         '<p class="linkwarn">⚠ ' + esc(warn) + ' ' +
-        '<button type="button" class="btn btn--ghost btn--sm" data-act="shorten">Shorten this link</button>' +
+        '<button type="button" class="btn btn--ghost btn--sm" data-act="shorten">Shorten</button>' +
         '</p>'
         : '');
   }
@@ -181,7 +188,8 @@
     item[field] = e.target.value;
 
     if (field === 'link' && e.target.value && !item.linkLabel) {
-      item.linkLabel = global.Importer.defaultLabelFor(e.target.value);
+      const pairs = global.Importer.linkPairs(e.target.value, '');
+      item.linkLabel = pairs.map(p => global.Importer.defaultLabelFor(p.url)).join('\n');
       card.querySelector('[data-f="linkLabel"]').value = item.linkLabel;
     }
     refreshMeter(card, item);
@@ -231,6 +239,39 @@
       });
   }
 
+  /**
+   * Shorten every dense/tracking link on a card, leaving any that were
+   * already fine untouched. Individual failures (no network, TinyURL
+   * unreachable) fall back to leaving that one link as it was rather than
+   * losing the whole card's links over one bad request.
+   */
+  function shortenItemLinks(item) {
+    const pairs = global.Importer.linkPairs(item.link, item.linkLabel);
+    const dense = new Set(denseUrls(item));
+    if (!dense.size) return Promise.resolve(false);
+    return Promise.all(pairs.map(p =>
+      dense.has(p.url)
+        ? shortenLink(p.url).then(short => ({ url: short, label: p.label })).catch(() => p)
+        : Promise.resolve(p)
+    )).then(updated => {
+      item.link = updated.map(p => p.url).join('\n');
+      item.linkLabel = updated.map(p => p.label).join('\n');
+      return true;
+    });
+  }
+
+  /**
+   * Runs right after every import, with no click needed — a dense QR code
+   * is a real problem on the TV, not an optional cleanup step. Any link
+   * that can't be shortened (offline, TinyURL down) keeps its warning and
+   * the manual "Shorten" button on its card as a fallback.
+   */
+  function autoShortenAll() {
+    items.forEach(item => {
+      shortenItemLinks(item).then(changed => { if (changed) render(); });
+    });
+  }
+
   cardsEl.addEventListener('click', e => {
     const act = e.target.dataset.act;
     if (!act) return;
@@ -241,12 +282,8 @@
       const item = items[i];
       btn.disabled = true;
       btn.textContent = 'Shortening…';
-      shortenLink(item.link)
-        .then(short => {
-          item.link = short;
-          render();
-          toast('Shortened to ' + short);
-        })
+      shortenItemLinks(item)
+        .then(() => { render(); toast('Shortened'); })
         .catch(err => {
           console.error(err);
           btn.disabled = false;
@@ -280,6 +317,7 @@
       toast('Could not find any announcements in that');
       return;
     }
+    autoShortenAll();
     const on = items.filter(it => it.include !== false).length;
     sourceNoteEl.innerHTML =
       '<div class="note"><p>Read <strong>' + esc(label) + '</strong> — found ' +
@@ -328,7 +366,7 @@
     const raw = pasteEl.value.trim();
     if (!raw) { toast('Paste the email first'); return; }
     const found = global.Importer.split(raw).map(it =>
-      Object.assign({ include: true, isSection: false, tracking: false }, it));
+      Object.assign({ include: true, isSection: false }, it));
     afterSplit(found, 'pasted text');
   });
 

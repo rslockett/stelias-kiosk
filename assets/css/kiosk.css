@@ -311,12 +311,13 @@ body::after {
 
 /* ------------------------------------------------------------------- qr -- */
 
+.slide__qr { justify-self: center; }
+
 .qr {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 1.3vh;
-  justify-self: center;
 }
 
 .qr__frame {
@@ -331,6 +332,21 @@ body::after {
   line-height: 0;
 }
 
+/* Several QR codes on one slide — a staff directory, several contacts —
+   share the same panel width as one, so each shrinks to fit rather than
+   spilling off the bottom of the screen. */
+.qr-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.6vh;
+}
+.qr-group .qr { gap: 0.7vh; }
+.qr-group--2 .qr__frame, .qr-group--2 .qr__label { width: min(24vh, 16vw); max-width: min(24vh, 16vw); }
+.qr-group--3 .qr__frame, .qr-group--3 .qr__label { width: min(18vh, 12vw); max-width: min(18vh, 12vw); }
+.qr-group--4 .qr__frame, .qr-group--4 .qr__label { width: min(14vh, 9.5vw); max-width: min(14vh, 9.5vw); }
+.qr-group--3 .qr__label, .qr-group--4 .qr__label { font-size: 1.4vh; letter-spacing: 0.06em; }
+
 .qr__svg { width: 100%; height: auto; display: block; }
 
 .qr__label {
@@ -344,6 +360,9 @@ body::after {
   text-transform: uppercase;
   color: var(--gold-deep);
   line-height: 1.35;
+  /* An email address is one unbroken "word" — without this it overflows
+     the frame instead of wrapping to a second line. */
+  overflow-wrap: break-word;
 }
 
 /* ---------------------------------------------------------------- empty -- */

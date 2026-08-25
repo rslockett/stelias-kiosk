@@ -94,25 +94,45 @@
   }
 
   /**
+   * "url1\nurl2" / "label1\nlabel2" -> [{url,label}, ...]. A Sheet row's
+   * Link and Link Label columns hold one QR code per line — a card naming
+   * several people (a staff directory, "contact X or Y") gets one labelled
+   * QR each rather than one anonymous code standing in for all of them.
+   */
+  function parseLinkPairs(link, label) {
+    const urls = String(link || '').split('\n').map(s => s.trim()).filter(Boolean);
+    const labels = String(label || '').split('\n');
+    return urls.map((u, i) => ({ url: u, label: (labels[i] || '').trim() || CFG.defaultQrLabel }));
+  }
+
+  /**
    * Build the DOM for one slide.
    * Layout is chosen from what the row actually has in it.
    */
   function buildSlideEl(slide) {
-    const hasQr = !!slide.link;
+    const links = parseLinkPairs(slide.link, slide.linkLabel);
+    const hasQr = links.length > 0;
     const hasImg = !!slide.image;
     const layout = hasImg ? 'image' : (hasQr ? 'qr' : 'text');
 
     const el = document.createElement('article');
     el.className = 'slide slide--' + layout;
 
+    // One code sizes and centres the same as always. Several share the panel,
+    // shrinking to fit rather than running off the bottom of the screen.
+    const qrOne = pair =>
+      '<div class="qr">' +
+        '<div class="qr__frame">' + makeQrSvg(pair.url) + '</div>' +
+        '<p class="qr__label">' + escapeHtml(pair.label) + '</p>' +
+      '</div>';
+
     let qrHtml = '';
-    if (hasQr) {
+    if (links.length === 1) {
+      qrHtml = '<aside class="slide__qr">' + qrOne(links[0]) + '</aside>';
+    } else if (links.length > 1) {
       qrHtml =
-        '<aside class="slide__qr qr">' +
-          '<div class="qr__frame">' + makeQrSvg(slide.link) + '</div>' +
-          (slide.linkLabel
-            ? '<p class="qr__label">' + escapeHtml(slide.linkLabel) + '</p>'
-            : '') +
+        '<aside class="slide__qr qr-group qr-group--' + Math.min(links.length, 4) + '">' +
+          links.map(qrOne).join('') +
         '</aside>';
     }
 

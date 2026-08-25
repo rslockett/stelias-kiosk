@@ -66,6 +66,15 @@
     index = ((i % deck.length) + deck.length) % deck.length;
     const slide = deck[index];
 
+    // Normally there's at most one outgoing element mid-transition, tracked
+    // by currentEl below. But if a resize fires while fonts/layout are still
+    // settling right after boot, it can trigger a second show() for the same
+    // slide before the first outgoing element's removal timer has run --
+    // clear anything stray now rather than let it sit stacked underneath.
+    Array.from(stage.children).forEach(child => {
+      if (child !== currentEl) child.remove();
+    });
+
     const el = global.Slide.buildSlideEl(slide);
     el.classList.add('is-entering');
     stage.appendChild(el);

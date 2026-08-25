@@ -358,6 +358,18 @@
   }
 
   /**
+   * "url1\nurl2" / "label1\nlabel2" -> [{url,label}, ...]. The Sheet's Link
+   * and Link Label columns hold one QR code per line — this is the one
+   * place that pairs them back up, shared by every path that builds or
+   * reads a multi-link card.
+   */
+  function linkPairs(link, label) {
+    const urls = String(link || '').split('\n').map(s => s.trim()).filter(Boolean);
+    const labels = String(label || '').split('\n');
+    return urls.map((u, i) => ({ url: u, label: (labels[i] || '').trim() }));
+  }
+
+  /**
    * Turn the ordered {text, bold, link} blocks from a .eml into announcements.
    * A bold block is a title; everything after it until the next bold block is
    * that announcement's body.
@@ -374,29 +386,29 @@
     for (const b of blocks) {
       if (b.bold) {
         flush();
-        cur = { title: b.text, lines: [], link: b.link || '', tracking: !!b.tracking, linkSet: new Set(b.link ? [b.link] : []) };
+        cur = { title: b.text, lines: [], links: [] };
+        linkPairs(b.link, b.linkLabel).forEach(p => cur.links.push(p));
       } else {
-        if (!cur) cur = { title: '', lines: [], link: '', tracking: false, linkSet: new Set() };
+        if (!cur) cur = { title: '', lines: [], links: [] };
         // A block can hold several lines once <br>s have been honoured; each
         // one needs to stand alone so sub-headings stay findable.
         b.text.split('\n').forEach(line => {
           if (line.trim()) cur.lines.push(line.trim());
         });
         // A group built from several small blocks — a staff directory where
-        // each name is its own line with its own mailto — can end up with
-        // more than one link. There's no correct way to pick just one, so
-        // this only keeps a link when every block that had one agrees.
-        if (b.link) {
-          cur.linkSet.add(b.link);
-          if (!cur.link) { cur.link = b.link; cur.tracking = !!b.tracking; }
-        }
+        // each name is its own line with its own mailto — collects one QR
+        // per person rather than picking just one and dropping the rest.
+        linkPairs(b.link, b.linkLabel).forEach(p => {
+          if (!cur.links.some(x => x.url === p.url)) cur.links.push(p);
+        });
       }
     }
     flush();
 
     for (const g of groups) {
-      if (g.linkSet.size > 1) { g.link = ''; g.tracking = false; }
-      delete g.linkSet;
+      g.link = g.links.map(l => l.url).join('\n');
+      g.linkLabel = g.links.map(l => l.label).join('\n');
+      delete g.links;
     }
 
     // Not every sub-heading in the newsletter is bold. "Sacred Music
@@ -424,7 +436,7 @@
       // Text above the first sub-heading stays with the original title.
       const head = g.lines.slice(0, cuts[0]);
       if (head.length || g.title) {
-        subdivided.push({ title: g.title, lines: head, link: '', tracking: false });
+        subdivided.push({ title: g.title, lines: head, link: '', linkLabel: '' });
       }
       cuts.forEach((start, n) => {
         const end = n + 1 < cuts.length ? cuts[n + 1] : g.lines.length;
@@ -432,13 +444,13 @@
           title: cleanHeading(g.lines[start]),
           lines: g.lines.slice(start + 1, end),
           link: '',
-          tracking: false,
+          linkLabel: '',
         });
       });
       // The group's link belongs to whichever piece kept the text around it.
       if (g.link && subdivided.length) {
         const last = subdivided[subdivided.length - 1];
-        if (!last.link) { last.link = g.link; last.tracking = g.tracking; }
+        if (!last.link) { last.link = g.link; last.linkLabel = g.linkLabel; }
       }
     }
 
@@ -446,6 +458,9 @@
       const joined = g.lines.join('\n').trim();
       const { link, body } = extractLink(joined);
       const finalLink = g.link || link;
+      const finalLabel = g.link && finalLink === g.link
+        ? linkPairs(g.link, g.linkLabel).map(p => p.label || defaultLabelFor(p.url)).join('\n')
+        : (finalLink ? defaultLabelFor(finalLink) : '');
       return {
         title: g.title,
         // No rejoining here: these lines came from real block and <br>
@@ -453,9 +468,8 @@
         // service time, a name, an address — not an accident of wrapping.
         body: autoBulletize(unwrapParagraphs(body, { rejoinWrapped: false })),
         link: finalLink,
-        linkLabel: finalLink ? defaultLabelFor(finalLink) : '',
+        linkLabel: finalLabel,
         end: findDate(g.title + '\n' + body),
-        tracking: g.tracking,
         include: true,
         isSection: false,
       };
@@ -488,7 +502,7 @@
     }
     // No HTML part — fall back to the plain-text splitter.
     return split(parsed.plain || '').map(it =>
-      Object.assign({ include: true, isSection: false, tracking: false }, it));
+      Object.assign({ include: true, isSection: false }, it));
   }
 
   /* ---------------------------------------------------------------- tsv -- */
@@ -530,7 +544,8 @@
 
   global.Importer = {
     split, splitEml, splitBlocks, cleanup, toTsv, toMatrix, findDate, extractLink,
-    looksLikeHeading, cleanHeading, unwrapParagraphs, autoBulletize, defaultLabelFor, COLUMNS,
+    looksLikeHeading, cleanHeading, unwrapParagraphs, autoBulletize, defaultLabelFor,
+    linkPairs, COLUMNS,
   };
 
 })(window);
