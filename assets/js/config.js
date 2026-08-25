@@ -78,7 +78,7 @@ window.KIOSK_CONFIG = {
 
      Leave blank to leave this slide off the TV entirely.
   -------------------------------------------------------------------------- */
-  liturgicalCsvUrl: '',
+  liturgicalCsvUrl: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRKHWTgqqt76qjc_U3VU9xdNLUJpDKjnnl2o_Hm7g85vC_Zy8-Hhiir28naTV25GW98_PWvjHF26hj5/pub?gid=1667543254&single=true&output=csv',
 
 
   /* --------------------------------------------------------------------------
