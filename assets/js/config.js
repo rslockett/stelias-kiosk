@@ -85,12 +85,12 @@ window.KIOSK_CONFIG = {
 
   coffeeHour: {
     csvUrl: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRKHWTgqqt76qjc_U3VU9xdNLUJpDKjnnl2o_Hm7g85vC_Zy8-Hhiir28naTV25GW98_PWvjHF26hj5/pub?gid=834317076&single=true&output=csv',
-    signupUrl: '',
+    signupUrl: 'https://tinyurl.com/28u86tec',
   },
 
   holyBread: {
     csvUrl: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRKHWTgqqt76qjc_U3VU9xdNLUJpDKjnnl2o_Hm7g85vC_Zy8-Hhiir28naTV25GW98_PWvjHF26hj5/pub?gid=637926506&single=true&output=csv',
-    signupUrl: '',
+    signupUrl: 'https://tinyurl.com/2awroxfv',
   },
 
   // How many upcoming Sundays to show, both on the TV and on signup.html.

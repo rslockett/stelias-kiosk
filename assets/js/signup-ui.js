@@ -2,10 +2,19 @@
    signup-ui.js — the page people land on after scanning a kiosk QR code
    ----------------------------------------------------------------------------
    Reads ?type=coffee or ?type=bread from the address, shows the upcoming
-   Sundays for that sign-up, and lets someone claim an open one. The claim
-   itself works exactly like the importer's "Make it live" (see live.js):
-   send it, then watch the published Sheet until it shows up, because Apps
-   Script cannot tell this page whether the write actually landed.
+   Sundays for that sign-up, and lets someone claim an open one.
+
+   The moment someone confirms a name, this shows it as taken immediately —
+   it does not wait for Google to catch up. Google's published-CSV endpoint
+   can take anywhere from a few seconds to over a minute to reflect a write
+   that has already landed in the Sheet (the write itself, via sheet/Code.gs,
+   is immediate and safe against two people claiming the same Sunday — see
+   the LockService check there). Waiting on the network for that long before
+   showing anything would just look broken and invite a second, redundant
+   sign-up. So the claim is remembered locally the instant it's made, and the
+   network poll afterward exists only to catch the rare real conflict: two
+   people claiming the same Sunday within moments of each other, where the
+   loser's optimistic checkmark has to be taken back.
    ========================================================================== */
 
 (function () {
@@ -54,6 +63,59 @@
     // yourself" fallback — claiming a slot only means something if it can
     // actually be written to the Sheet. See sheet/Code.gs.
     showNotice('Sign-ups aren’t accepting entries yet — contact the church office to sign up directly.', 'error');
+  }
+
+  /* ------------------------------------------------------- this device's claims -- */
+
+  // What this browser has claimed, so a slot it just confirmed reads as
+  // taken immediately — and stays that way across a reload — without
+  // waiting on Google's publish lag. Reconciled against the network in
+  // reconcile() below; a genuine conflict (someone else's name lands in
+  // the Sheet for the same date) clears the entry here.
+  const STORAGE_KEY = 'stelias.signup.mine.' + typeKey;
+
+  function loadMine() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  function saveMine() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(mine)); } catch (e) { /* storage full or disabled */ }
+  }
+
+  let mine = loadMine();   // { [iso]: name }
+
+  /**
+   * Layer this device's own claims on top of whatever the network currently
+   * says, and drop any claim the network has since contradicted (someone
+   * else's name landed for the same date — a genuine race, not just lag).
+   * Returns the date label of a conflict found, or null.
+   */
+  function reconcile(slots) {
+    let conflictLabel = null;
+    let changed = false;
+
+    for (const slot of slots) {
+      const myName = mine[slot.iso];
+      if (!myName) continue;
+
+      if (slot.filled && slot.name !== myName) {
+        delete mine[slot.iso];
+        changed = true;
+        conflictLabel = slot.label;
+      } else if (!slot.filled) {
+        // Network hasn't caught up yet — show my own claim in its place.
+        slot.filled = true;
+        slot.name = myName;
+      }
+    }
+
+    if (changed) saveMine();
+    return conflictLabel;
   }
 
   /* ------------------------------------------------------------ fetching -- */
@@ -128,7 +190,7 @@
       form.addEventListener('submit', e => {
         e.preventDefault();
         const name = form.querySelector('.slot__input').value.trim();
-        if (name) submitSignup(slot, name, li);
+        if (name) submitSignup(slot, name);
       });
     }
   }
@@ -139,91 +201,62 @@
 
   /* --------------------------------------------------------------- submit -- */
 
-  async function submitSignup(slot, name, li) {
-    const statusEl = li.querySelector('.slot__status');
-
+  function submitSignup(slot, name) {
     if (!CFG.publishUrl) {
-      statusEl.hidden = false;
-      statusEl.className = 'slot__status is-error';
-      statusEl.textContent = 'Sign-ups aren’t accepting entries yet — contact the church office.';
+      showNotice('Sign-ups aren’t accepting entries yet — contact the church office.', 'error');
       return;
     }
 
-    li.setAttribute('disabled', 'disabled');
-    statusEl.hidden = false;
-    statusEl.className = 'slot__status';
-    statusEl.textContent = 'Saving … this can take up to a minute.';
+    // Claim it locally and show it as taken right away — no waiting on
+    // Google's publish lag. See the big comment at the top of this file.
+    mine[slot.iso] = name;
+    saveMine();
+    openDate = null;
+    slot.filled = true;
+    slot.name = name;
+    render(lastSlots);
+    showNotice('You’re signed up for ' + slot.label + '. Thank you!', 'good');
 
-    try {
-      await fetch(CFG.publishUrl, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'signup', type: typeKey, date: slot.iso, name }),
-      });
-    } catch (e) {
-      // A no-cors POST resolves even on most network errors; if it truly
-      // couldn't be sent, the watch loop below will just time out.
-    }
+    fetch(CFG.publishUrl, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'signup', type: typeKey, date: slot.iso, name }),
+    }).catch(() => { /* no-cors POSTs resolve even on most network errors */ });
 
-    watchForConfirmation(slot.iso, name, li, statusEl);
+    watchForConflict(slot.iso);
   }
 
   /**
-   * Re-read the published Sheet until this exact sign-up shows up — or until
-   * someone else's name shows up for the same Sunday first, or five minutes
-   * pass. Same "don't claim it worked until we've seen it" rule live.js
-   * uses for the importer's "Make it live".
+   * Poll a little more eagerly right after a claim, purely to catch a real
+   * race — someone else's name landing in the Sheet for the same Sunday —
+   * rather than to confirm the claim itself (that already happened above).
+   * Gives up after a couple of minutes; reconcile() on the normal 30-second
+   * poll will still catch a late-arriving conflict after that.
    */
-  function watchForConfirmation(iso, name, li, statusEl) {
-    const deadline = Date.now() + 5 * 60 * 1000;
-    let failCount = 0;
+  function watchForConflict(iso) {
+    const deadline = Date.now() + 2 * 60 * 1000;
 
     const tick = async () => {
-      let slots;
+      if (!mine[iso] || Date.now() > deadline) return;
+
       try {
-        slots = await fetchSlots();
-        failCount = 0;
-      } catch (e) {
-        slots = null;
-        failCount++;
-        // Google's published CSV can 404 for a few seconds right after a
-        // write — don't leave the button looking frozen while that clears.
-        if (failCount >= 2) {
-          statusEl.textContent = 'Still trying to confirm — the sign-up sheet isn’t responding yet. This can take a minute.';
-        }
-      }
-
-      if (slots) {
+        const slots = await fetchSlots();
+        const conflictLabel = reconcile(slots);
         lastSlots = slots;
-        const match = slots.find(s => s.iso === iso);
-
-        if (match && match.filled && match.name === name) {
-          openDate = null;
-          render(lastSlots);
-          showNotice('You’re signed up for ' + match.label + '. Thank you!', 'good');
+        if (conflictLabel) {
+          if (openDate === null) render(lastSlots);
+          showNotice('Someone else just took ' + conflictLabel + ' — your sign-up wasn’t saved. Please pick another Sunday.', 'error');
           return;
         }
-        if (match && match.filled && match.name !== name) {
-          li.removeAttribute('disabled');
-          openDate = null;
-          render(lastSlots);
-          showNotice('Someone else just took that Sunday — pick another.', 'error');
-          return;
-        }
+      } catch (e) {
+        /* the regular 30-second poll will keep trying */
       }
 
-      if (Date.now() > deadline) {
-        li.removeAttribute('disabled');
-        statusEl.className = 'slot__status is-error';
-        statusEl.textContent = 'This is taking longer than usual. If it doesn’t appear on the hall screen soon, let the church office know.';
-        return;
-      }
-
-      setTimeout(tick, 3000);
+      setTimeout(tick, 5000);
     };
 
-    setTimeout(tick, 3000);
+    setTimeout(tick, 5000);
   }
 
   /* ---------------------------------------------------------------- poll -- */
@@ -232,9 +265,14 @@
 
   async function refresh() {
     try {
-      lastSlots = await fetchSlots();
+      const slots = await fetchSlots();
+      const conflictLabel = reconcile(slots);
+      lastSlots = slots;
       // Don't redraw out from under someone who has a sign-up form open.
       if (openDate === null) render(lastSlots);
+      if (conflictLabel) {
+        showNotice('Someone else just took ' + conflictLabel + ' — your sign-up wasn’t saved. Please pick another Sunday.', 'error');
+      }
     } catch (e) {
       if (!lastSlots.length) {
         showNotice('Could not load the sign-up sheet. Check your connection and reload.', 'error');
