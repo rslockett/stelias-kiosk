@@ -63,7 +63,7 @@ window.KIOSK_CONFIG = {
   // Optional: the Sheet's own address, so the importer can offer an
   // "Open the Sheet" link to double-check a publish went through. Just the
   // normal address from your browser's bar when the Sheet is open.
-  sheetEditUrl: '',
+  sheetEditUrl: 'https://docs.google.com/spreadsheets/d/1bZeYRQh2ITbIIhzV1l-Fm6fUGmEPr29oeYc3U3Azc3o/edit?gid=0#gid=0',
 
 
   /* --------------------------------------------------------------------------
