@@ -291,6 +291,43 @@ Standing items (service times, giving, welcome) just get an End date years out.
 
 ---
 
+## Today in the Church
+
+A slide leading the rotation each day with the day's saints and commemorations,
+the fasting rule, and the tone of the week — pulled automatically from
+[GOARCH's public Online Chapel feed](https://onlinechapel.goarch.org/daily.asp),
+the same data source a number of parish websites have quietly relied on for
+years. Nothing to type in, nothing to remember: it refreshes itself once a
+day.
+
+### Setting it up
+
+1. Add a tab named **Liturgical** to the Sheet. Whatever's in it gets
+   overwritten automatically — no headers to set up by hand.
+2. In the Sheet's **Extensions → Apps Script** editor, choose
+   `installDailyLiturgicalTrigger` from the function dropdown (next to the
+   Run button) and press **Run**. Google will ask to authorize a new
+   permission — fetching an outside page — since `Code.gs` hasn't needed that
+   before; approve it. This installs the daily trigger and also fills in the
+   tab immediately, so you're not waiting until tomorrow to see it work.
+3. Publish the Liturgical tab to the web the same way as the others: **File →
+   Share → Publish to web** → the Liturgical tab → **CSV** → **Publish**.
+4. Paste that link into `liturgicalCsvUrl` in
+   [`assets/js/config.js`](assets/js/config.js).
+
+Leave `liturgicalCsvUrl` blank to leave this slide off the TV entirely. If the
+feed can't be reached on a given night, the tab is simply left as it was
+rather than wiped — yesterday's slide staying up one extra day beats it
+going blank.
+
+> This uses a real, stable, publicly documented GOARCH feed — the same one a
+> long-standing WordPress plugin has pulled from for parish websites — but it
+> isn't an official supported API with an SLA. If GOARCH ever moves it,
+> `LITURGICAL_FEED_URL` near the top of `sheet/Code.gs` is the only line that
+> needs to change.
+
+---
+
 ## Coffee Hour and Holy Bread sign-ups
 
 Two more slides on the TV, built the same way as everything else here: a
@@ -559,12 +596,15 @@ assets/
   js/orthodox-calendar.js  which Sundays fall in a fasting period
   js/signup-data.js    turns a sign-up Sheet tab into a list of Sundays
   js/signup-ui.js   signup.html itself — claiming a Sunday
+  js/liturgical-data.js  turns the Liturgical Sheet tab into today's slide
   js/qrcode.js      QR code generator (Kazuhiko Arase, MIT)
   fonts/            EB Garamond + Montserrat
   img/              parish monogram and cross
 pi/setup-pi.sh      one-time Raspberry Pi setup
-sheet/Code.gs       the Apps Script that receives "Make it live" and sign-ups
-sample/             example announcements and sign-ups, used when nothing is configured
+sheet/Code.gs       the Apps Script that receives "Make it live", sign-ups,
+                    and the daily liturgical fetch
+sample/             example announcements, sign-ups and liturgical data,
+                    used when nothing is configured
 ```
 
 Plain HTML, CSS and JavaScript — no build step, no frameworks, nothing to

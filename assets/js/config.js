@@ -67,7 +67,22 @@ window.KIOSK_CONFIG = {
 
 
   /* --------------------------------------------------------------------------
-     3. SIGN-UPS  (Coffee Hour host, Holy Bread)
+     3. TODAY IN THE CHURCH  (saints, fasting rule, from GOARCH)
+     --------------------------------------------------------------------------
+     A "Liturgical" tab in the same Sheet, refreshed automatically once a day
+     — nothing to type in by hand. See the note near the top of sheet/Code.gs
+     for the one-time step that turns this on (installDailyLiturgicalTrigger).
+
+     Publish that tab to the web the same way as the others (File -> Share ->
+     Publish to web -> the Liturgical tab -> CSV), then paste the link below.
+
+     Leave blank to leave this slide off the TV entirely.
+  -------------------------------------------------------------------------- */
+  liturgicalCsvUrl: '',
+
+
+  /* --------------------------------------------------------------------------
+     4. SIGN-UPS  (Coffee Hour host, Holy Bread)
      --------------------------------------------------------------------------
      Two more tabs in the same Sheet, each published to the web exactly like
      the Announcements tab (File -> Share -> Publish to web -> that tab ->
@@ -106,7 +121,7 @@ window.KIOSK_CONFIG = {
 
 
   /* --------------------------------------------------------------------------
-     4. TIMING
+     5. TIMING
   -------------------------------------------------------------------------- */
 
   // How long each announcement stays on screen, in seconds.
@@ -127,7 +142,7 @@ window.KIOSK_CONFIG = {
 
 
   /* --------------------------------------------------------------------------
-     5. WHAT THE SCREEN SAYS
+     6. WHAT THE SCREEN SAYS
   -------------------------------------------------------------------------- */
 
   churchName: 'St. Elias Orthodox Church',
@@ -141,7 +156,7 @@ window.KIOSK_CONFIG = {
 
 
   /* --------------------------------------------------------------------------
-     6. FINE TUNING  (you can almost certainly ignore this section)
+     7. FINE TUNING  (you can almost certainly ignore this section)
   -------------------------------------------------------------------------- */
 
   // Text auto-shrinks so every announcement fits on ONE slide and never runs

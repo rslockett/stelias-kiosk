@@ -28,6 +28,18 @@
  * This same endpoint also receives Coffee Hour and Holy Bread sign-ups from
  * signup.html — no extra setup needed for that, it uses the deployment
  * above. See SIGNUP_SHEETS below if you rename either tab.
+ *
+ * ONE MORE ONE-TIME STEP — the daily saints/readings slide:
+ *   Add a tab named "Liturgical" to this Sheet (any content in it is fine,
+ *   it gets overwritten). Then, in this Apps Script editor, choose
+ *   installDailyLiturgicalTrigger from the function dropdown next to Run,
+ *   and press Run. Google will ask to authorize a new permission (fetching
+ *   an external page) — that's expected, approve it. This installs a
+ *   trigger that refreshes the Liturgical tab once a day from GOARCH's
+ *   public Online Chapel feed, and also fills it in immediately so you
+ *   don't have to wait until tomorrow to see it working. Re-running that
+ *   function later is harmless — it replaces the old trigger rather than
+ *   adding a second one.
  * ---------------------------------------------------------------------------
  */
 
@@ -49,6 +61,14 @@ var SIGNUP_SHEETS = {
   bread: 'Holy Bread',
 };
 var SIGNUP_HEADERS = ['Date', 'Name', 'Signed Up At'];
+
+// GOARCH's public Online Chapel feed — the same one a number of parish
+// websites have pulled saints/readings from for years. Not an official,
+// supported API, just a stable, publicly documented XML endpoint; if it
+// ever moves, this is the only line that needs to change.
+var LITURGICAL_FEED_URL = 'https://onlinechapel.goarch.org/daily.asp';
+var LITURGICAL_SHEET_NAME = 'Liturgical';
+var LITURGICAL_HEADERS = ['Date', 'Title', 'Saints', 'Fasting', 'Tone', 'Icon'];
 
 function doPost(e) {
   try {
@@ -221,4 +241,69 @@ function jsonOut(obj) {
   return ContentService
     .createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+/**
+ * Pull today's saints, readings and fasting rule from GOARCH's public
+ * Online Chapel feed and write them into the Liturgical tab. Called once a
+ * day by the trigger installDailyLiturgicalTrigger sets up — see the note
+ * at the top of this file.
+ *
+ * If the feed can't be reached, the Liturgical tab is left exactly as it
+ * was — yesterday's slide staying up one extra day beats the slide going
+ * blank because of a network hiccup at 1am.
+ */
+function fetchDailyLiturgical() {
+  var response = UrlFetchApp.fetch(LITURGICAL_FEED_URL, { muteHttpExceptions: true });
+  if (response.getResponseCode() !== 200) return;
+
+  var root = XmlService.parse(response.getContentText()).getRootElement();
+
+  var title = childText(root, 'lectionarytitle');
+  if (!title) return; // an empty or malformed feed — don't overwrite good data with nothing
+
+  var fasting = childText(root, 'fasting') || 'No Fast';
+  var tone = childText(root, 'tone');
+  var icon = childText(root, 'icon').replace(/^http:/, 'https:');
+
+  var others = [];
+  var saintsEl = root.getChild('saintsfeasts');
+  if (saintsEl) {
+    var feasts = saintsEl.getChildren('saintfeast');
+    for (var i = 0; i < feasts.length; i++) {
+      var t = childText(feasts[i], 'title');
+      if (t && t !== title) others.push(t);
+    }
+  }
+
+  var sheet = SpreadsheetApp.getActive().getSheetByName(LITURGICAL_SHEET_NAME);
+  if (!sheet) sheet = SpreadsheetApp.getActive().insertSheet(LITURGICAL_SHEET_NAME);
+
+  sheet.clearContents();
+  sheet.getRange(1, 1, 1, LITURGICAL_HEADERS.length).setValues([LITURGICAL_HEADERS]);
+  sheet.getRange(2, 1, 1, LITURGICAL_HEADERS.length).setValues([[
+    childText(root, 'formatteddate'), title, others.join('; '), fasting, tone, icon,
+  ]]);
+}
+
+function childText(parent, name) {
+  var el = parent.getChild(name);
+  return el ? el.getText().trim() : '';
+}
+
+/**
+ * Run this once, manually — select it in the function dropdown next to
+ * Run, then press Run — to start the daily refresh. See the note at the
+ * top of this file. Safe to run again later: it replaces any existing
+ * trigger for this function rather than adding a second one.
+ */
+function installDailyLiturgicalTrigger() {
+  var triggers = ScriptApp.getProjectTriggers();
+  for (var i = 0; i < triggers.length; i++) {
+    if (triggers[i].getHandlerFunction() === 'fetchDailyLiturgical') {
+      ScriptApp.deleteTrigger(triggers[i]);
+    }
+  }
+  ScriptApp.newTrigger('fetchDailyLiturgical').timeBased().everyDays(1).atHour(1).create();
+  fetchDailyLiturgical(); // and populate it right now, rather than waiting until 1am
 }

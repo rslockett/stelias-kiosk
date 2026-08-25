@@ -26,16 +26,19 @@
   let timer = null;
   let paused = false;
 
-  // The announcement deck and the two sign-up slides are three independent,
-  // independently-polled sources. Whichever changes, the merged deck is
-  // rebuilt and handed to onDeck exactly as if it were one source — sign-up
-  // slides always ride at the end of the rotation, after the announcements.
+  // The announcement deck, the day's saints slide, and the two sign-up
+  // slides are four independent, independently-polled sources. Whichever
+  // changes, the merged deck is rebuilt and handed to onDeck exactly as if
+  // it were one source — today's saints lead the rotation, sign-ups ride
+  // at the end, after the announcements.
   let announcementSlides = [];
+  let liturgicalSlide = null;
   let coffeeSlide = null;
   let breadSlide = null;
 
   function mergedDeck() {
-    return announcementSlides.concat(coffeeSlide ? [coffeeSlide] : [], breadSlide ? [breadSlide] : []);
+    return (liturgicalSlide ? [liturgicalSlide] : [])
+      .concat(announcementSlides, coffeeSlide ? [coffeeSlide] : [], breadSlide ? [breadSlide] : []);
   }
 
   /* ---------------------------------------------------------------- clock -- */
@@ -194,6 +197,12 @@
     applyDeck(mergedDeck());
   }
 
+  function onLiturgicalSlide(slide) {
+    console.log('[kiosk] liturgical updated:', slide ? slide.title : 'not configured');
+    liturgicalSlide = slide;
+    applyDeck(mergedDeck());
+  }
+
   function onStatus(status) {
     if (!CFG.showOfflineIndicator || !offlineEl) return;
     offlineEl.hidden = !!status.online;
@@ -214,6 +223,7 @@
       else startProgress(dwellMs(deck[index]));
     } else if (e.key === 'r') {
       global.kioskSource && global.kioskSource.refresh();
+      global.liturgicalSource && global.liturgicalSource.refresh();
       global.coffeeSignupSource && global.coffeeSignupSource.refresh();
       global.breadSignupSource && global.breadSignupSource.refresh();
     }
@@ -255,6 +265,11 @@
     if (document.fonts && document.fonts.ready) {
       try { await document.fonts.ready; } catch (e) { /* proceed anyway */ }
     }
+
+    global.liturgicalSource = global.LiturgicalData
+      .createLiturgicalSource(CFG.liturgicalCsvUrl)
+      .on(onLiturgicalSlide)
+      .start();
 
     global.coffeeSignupSource = global.SignupData.createKioskSource({
       kind: 'coffee',
