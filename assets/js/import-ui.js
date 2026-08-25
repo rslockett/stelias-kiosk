@@ -972,10 +972,19 @@
   }
 
   function renderTightenPanel(panel, result) {
+    const isAi = result.engine !== 'rules';
     panel.hidden = false;
     panel.innerHTML =
-      '<p class="tighten-panel__source">' + esc(result.engineLabel) +
-        ' — ' + plural(result.text.length, 'character') + ', check nothing important was lost.</p>' +
+      '<p class="tighten-panel__source">' +
+        '<span class="badge ' + (isAi ? 'badge--ai' : 'badge--rules') + '">' +
+          (isAi ? 'AI' : 'No AI') +
+        '</span> ' +
+        (isAi
+          ? 'Written by Chrome’s on-device AI, running on this computer — nothing was sent anywhere.'
+          : 'Shortened by removing filler phrases, not by AI — the same everywhere, every time.') +
+      '</p>' +
+      '<p class="tighten-panel__meta">' + plural(result.text.length, 'character') +
+        ' — read it over before using it, the same as anything else here.</p>' +
       '<textarea class="tighten-panel__text" rows="4">' + esc(result.text) + '</textarea>' +
       '<div class="row">' +
         '<button class="btn btn--primary btn--sm" type="button" data-act="tighten-use">Use this</button>' +
