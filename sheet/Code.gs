@@ -241,19 +241,25 @@ function ensureSignupHeaders(sheet) {
 // Free tier, no credit card: https://aistudio.google.com/apikey
 var GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/interactions';
 
-// Tried in order, newest first. The newest model is the best writer and also
-// by far the busiest — "currently experiencing high demand" is a reply a
-// parish office will genuinely meet, and did on the first day this was
-// tested — so there are older, quieter ones queued behind it.
+// Tried in order — SMALLEST FIRST, which is the opposite of the obvious.
 //
-// Falling back costs almost nothing here. Laying out a church announcement is
-// not hard work for any of these models, and a very slightly plainer rewrite
-// on a Monday morning beats an error message on a Monday morning.
+// This started out newest-first, on the reasoning that the best writer should
+// get first refusal. Two things proved that wrong within an hour of real use:
+// the newest model was overloaded every single time it was asked, and the
+// free allowance attached to it is the tightest of the lot — so leading with
+// it was both the slowest route and the one that burned through the parish's
+// daily quota fastest.
+//
+// Laying out a church announcement is not hard work for a language model. It
+// is reformatting and trimming, against rules that are spelled out in the
+// prompt. A lite model does it well, answers immediately, and has by far the
+// most generous daily allowance. The bigger ones sit behind it for the rare
+// announcement that defeats it.
 var GEMINI_MODELS = [
-  'gemini-3.7-flash',
-  'gemini-3.6-flash',
-  'gemini-3.5-flash',
   'gemini-3.5-flash-lite',
+  'gemini-3.5-flash',
+  'gemini-3.6-flash',
+  'gemini-3.7-flash',
 ];
 
 // One try each, then move on. Asking an overloaded model a second time mostly
@@ -459,8 +465,10 @@ function tryGemini(model, key, items, mode) {
     return {
       ok: false,
       fatal: true,
-      error: 'Google’s free allowance has been used up for now — it resets on ' +
-             'its own, usually within the day. Nothing was changed.',
+      error: 'Google’s free allowance is used up for now. It resets on its own ' +
+             'at midnight Pacific time — nothing was changed, and everything ' +
+             'imported is still here exactly as the newsletter wrote it. ' +
+             'Check the live cap for this key at aistudio.google.com.',
     };
   }
   if (code === 400 && /API key/i.test(text)) {

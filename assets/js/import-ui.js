@@ -988,6 +988,7 @@
 
     if (act === 'shorten') { shortenOnCard(btn, i); return; }
     if (act === 'rewrite') { rewriteOnCard(i); return; }
+    if (act === 'rewrite-retry') { rewriteOnCard(i, { noCache: true }); return; }
 
     if (act === 'tighten-use') {
       const panel = btn.closest('[data-tighten-panel]');
@@ -1183,7 +1184,7 @@
    * newsletter headline is often a sentence and a slide headline has to be
    * three or four words. Both are shown before either is used.
    */
-  async function rewriteOnCard(i) {
+  async function rewriteOnCard(i, opts) {
     const item = items[i];
     const card = cardAt(i);
     if (!item || !card) return;
@@ -1199,7 +1200,7 @@
     panel.hidden = true;
 
     try {
-      const result = await global.Format.formatOne(item);
+      const result = await global.Format.formatOne(item, null, opts);
 
       if (!result || !result.body) {
         toast('Nothing came back — try again in a moment.');
@@ -1242,7 +1243,7 @@
       '<textarea class="tighten-panel__text" rows="6">' + esc(result.body) + '</textarea>' +
       '<div class="row">' +
         '<button class="btn btn--primary btn--sm" type="button" data-act="tighten-use">Use this</button>' +
-        '<button class="btn btn--ghost btn--sm" type="button" data-act="rewrite">Try again</button>' +
+        '<button class="btn btn--ghost btn--sm" type="button" data-act="rewrite-retry">Try again</button>' +
         '<button class="btn btn--ghost btn--sm" type="button" data-act="tighten-discard">Discard</button>' +
       '</div>';
   }
@@ -1340,6 +1341,38 @@
 
   let formatAbandoned = false;
 
+  // Below this, an announcement is short enough that there is nothing for a
+  // rewrite to do — a service time, a one-line notice, a "the office is shut
+  // on Monday". Above it, prose with no shape to it is worth reshaping even
+  // when it happens to fit.
+  const SHORT_ENOUGH_CHARS = 320;
+
+  /**
+   * Is this announcement worth spending a request on?
+   *
+   * Three ways to qualify, and an announcement that qualifies on none of them
+   * is left exactly as the newsletter wrote it:
+   *
+   *   - it does not fit, or only fits by shrinking below what reads across
+   *     a hall — the measurement says so, having actually drawn it;
+   *   - it is a long stretch of prose with no headings, bullets or contacts
+   *     in it, which on a television is a grey wall however well it fits;
+   *   - it still carries the newsletter's throat-clearing, which is worth
+   *     removing on its own.
+   */
+  function needsLayout(item) {
+    const body = String(item.body || '').trim();
+    if (!body) return false;
+
+    const level = meterFor(item).level;
+    if (level === 'over' || level === 'tight') return true;
+
+    if (body.length > SHORT_ENOUGH_CHARS && !global.Slide.hasStructure(body)) return true;
+
+    return /\b(we are (pleased|excited|happy|delighted) to|please note that|as a reminder|stay tuned|click (on )?(this|the) link|more details (coming|will be))/i
+      .test(body);
+  }
+
   function showWorking(text) {
     workingTextEl.textContent = text;
     workingEl.hidden = false;
@@ -1380,9 +1413,20 @@
       return;
     }
 
-    const targets = list.filter(it => it.include !== false &&
-                                      String(it.body || '').trim());
-    if (!targets.length) return;
+    // Measure first, then send only what is actually not good enough.
+    //
+    // Sending the whole newsletter was wasteful and slow: two thirds of a
+    // parish email is already short, already structured, and already reads
+    // from across the hall, and asking a model to improve it spends Google's
+    // free allowance to get the same words back. What is left — the long
+    // ones, the walls of prose — is the part worth spending on.
+    await measureUnmeasured();
+
+    const targets = list.filter(it => it.include !== false && needsLayout(it));
+    if (!targets.length) {
+      toast('Those came in already fitting the screen — nothing needed changing.');
+      return;
+    }
 
     showWorking('Laying ' + plural(targets.length, 'announcement') + ' out for the screen…');
 
