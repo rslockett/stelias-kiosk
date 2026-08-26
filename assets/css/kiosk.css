@@ -597,17 +597,29 @@ body::after {
 
 /* --------------------------------------------------------------- bottom -- */
 
+/* Three real columns rather than a centred row with things floated over it.
+   The old version positioned the corner notes absolutely, which meant they
+   were laid out on top of whatever happened to be there — they collided with
+   the dots once there were enough of them, and could sit proud of this bar
+   entirely and intrude on the bottom of the slide. Given columns, each one
+   simply has its own space and cannot reach into anybody else's. */
 .bottombar {
   flex: 0 0 auto;
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: center;
-  position: relative;
-  min-height: 2.4vh;
+  gap: 1.5vh;
+  min-height: 2.8vh;
   padding-top: 0.6vh;
 }
 
-.dots { display: flex; gap: 1.1vh; align-items: center; }
+.dots {
+  grid-column: 2;
+  display: flex;
+  gap: 1.1vh;
+  align-items: center;
+  justify-self: center;
+}
 
 .dot {
   width: 1vh;
@@ -618,19 +630,45 @@ body::after {
 }
 .dot.is-current { background: var(--gold-deep); transform: scale(1.35); }
 
+/* When these announcements were put up, and when the screen last managed to
+   check. Sits opposite the dots, quiet enough to ignore from a table and
+   legible enough to read deliberately from a couple of feet — which is the
+   only way anybody will ever use it. */
+.freshness {
+  grid-column: 1;
+  justify-self: start;
+  min-width: 0;
+  font-family: 'Montserrat', system-ui, sans-serif;
+  font-size: 1.35vh;
+  letter-spacing: 0.055em;
+  color: var(--ink-soft);
+  opacity: 0.5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.freshness[hidden] { display: none; }
+
 .offline {
-  position: absolute;
-  right: 0;
+  grid-column: 3;
+  justify-self: end;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 0.8vh;
   font-family: 'Montserrat', system-ui, sans-serif;
-  font-size: 1.5vh;
-  letter-spacing: 0.06em;
+  font-size: 1.35vh;
+  letter-spacing: 0.055em;
   color: var(--ink-soft);
-  opacity: 0.75;
+  opacity: 0.6;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 .offline[hidden] { display: none; }
+.offline__dot { flex: none; }
 .offline__dot {
   width: 0.9vh;
   height: 0.9vh;

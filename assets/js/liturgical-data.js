@@ -68,11 +68,10 @@
 
     async function refresh() {
       try {
-        const url = csvUrl + (csvUrl.indexOf('?') === -1 ? '?' : '&') + '_ts=' + Date.now();
-        const res = await fetch(url, { cache: 'no-store' });
-        if (!res.ok) throw new Error('responded ' + res.status);
-        const text = await res.text();
-        if (/^\s*</.test(text)) throw new Error('got a web page instead of CSV');
+        // Deck.fetchCsv rather than a bare fetch: it retries the intermittent
+        // redirect Google's published CSVs occasionally answer with, which
+        // otherwise dropped this slide off the rotation at random.
+        const text = await global.Deck.fetchCsv(csvUrl);
 
         saveCache(text);
         const h = global.Deck.hash(text);

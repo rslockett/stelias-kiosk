@@ -174,7 +174,7 @@
     return url + (url.indexOf('?') === -1 ? '?' : '&') + '_ts=' + Date.now();
   }
 
-  async function fetchCsv(url) {
+  async function fetchOnce(url) {
     const res = await fetch(cacheBust(url), { cache: 'no-store' });
     if (!res.ok) throw new Error('Sheet responded ' + res.status);
     const text = await res.text();
@@ -185,6 +185,38 @@
       throw new Error('Got a web page instead of CSV — check that the Sheet is still published');
     }
     return text;
+  }
+
+  /**
+   * Read the published Sheet, trying more than once before believing a
+   * failure.
+   *
+   * Google does not serve a published CSV directly. It answers with a
+   * redirect, and which host it redirects to varies — one of those paths
+   * sometimes comes back without the header a browser requires in order to
+   * let the page read the response, and the fetch is refused. It is
+   * intermittent, it has nothing to do with the Sheet or the network, and the
+   * very next request usually succeeds.
+   *
+   * Left unhandled this put "showing last saved copy" on the wall of the hall
+   * for two minutes at a time, on a screen that was perfectly healthy and
+   * displaying perfectly current announcements. Retrying costs a second and
+   * removes the whole class of false alarm.
+   */
+  async function fetchCsv(url) {
+    let lastErr = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (attempt > 0) await new Promise(r => setTimeout(r, 900 * attempt));
+      try {
+        return await fetchOnce(url);
+      } catch (err) {
+        lastErr = err;
+        // An unpublished Sheet is a real answer, not a blip — asking again
+        // will get the same web page, so stop and say so.
+        if (/web page instead of CSV/.test(err.message)) throw err;
+      }
+    }
+    throw lastErr;
   }
 
   /* --------------------------------------------------------------- cache -- */
@@ -213,14 +245,41 @@
    * Emits: 'deck'    (slides, meta)  — first good load, or content changed
    *        'status'  ({online, message})
    */
+  // How many polls in a row have to fail before the screen says anything.
+  //
+  // "Showing last saved copy" is a message for the hall — it means somebody
+  // should go and look at the Pi. One failed read does not mean that, and
+  // announcing it on a wall for two minutes because of a transient hiccup
+  // teaches everybody to ignore the warning, which is worse than not having
+  // one. Two consecutive failures, each already retried three times, is a
+  // genuine four-minute outage and worth saying out loud.
+  const FAILURES_BEFORE_SAYING_SO = 2;
+
   function createDeckSource(url) {
     let lastHash = null;
+    let consecutiveFailures = 0;
     const listeners = { deck: [], status: [] };
 
     function emit(name, ...args) {
       listeners[name].forEach(fn => {
         try { fn(...args); } catch (e) { console.error(e); }
       });
+    }
+
+    /**
+     * Who published last, and when, if the Sheet's Apps Script records it.
+     * The same two columns the editor reads — which is the point: the time
+     * shown in the hall and the time shown in the editor are then the same
+     * number, and matching them is how somebody confirms the screen is
+     * current without having to trust anything.
+     */
+    function stampFrom(rows) {
+      for (const r of rows) {
+        if (r.publishedby || r.publishedat) {
+          return { by: (r.publishedby || '').trim(), at: (r.publishedat || '').trim() };
+        }
+      }
+      return null;
     }
 
     function ingest(csvText, source) {
@@ -230,7 +289,7 @@
 
       const rows = global.CSV.parseObjects(csvText);
       const slides = buildDeck(rows, new Date());
-      emit('deck', slides, { source, totalRows: rows.length });
+      emit('deck', slides, { source, totalRows: rows.length, stamp: stampFrom(rows) });
       return true;
     }
 
@@ -239,11 +298,20 @@
         const csv = await fetchCsv(url);
         saveCache(csv);
         const changed = ingest(csv, 'network');
-        emit('status', { online: true });
+        consecutiveFailures = 0;
+        // Emitted on every successful read, not only when something changed —
+        // "we reached the Sheet just now" is exactly the fact the footer
+        // clock needs, and most reads find nothing new.
+        emit('status', { online: true, checkedAt: Date.now() });
         return changed;
       } catch (err) {
-        console.warn('[kiosk] could not reach the Sheet:', err.message);
-        emit('status', { online: false, message: err.message });
+        consecutiveFailures++;
+        console.warn('[kiosk] could not reach the Sheet (' + consecutiveFailures +
+          ' in a row):', err.message);
+        emit('status', {
+          online: consecutiveFailures < FAILURES_BEFORE_SAYING_SO,
+          message: err.message,
+        });
 
         // Fall back to the last good copy, but only if we have nothing yet.
         if (lastHash === null) {
@@ -274,6 +342,10 @@
     buildDeck,
     parseDate,
     hash,
+    // Shared so the liturgical and sign-up tabs get the same retry. They read
+    // published CSVs from the same Google endpoint and hit the same
+    // intermittent redirect — see the note above fetchCsv.
+    fetchCsv,
     _internals: { rowToSlide, isOff, nearestOccurrence },
   };
 

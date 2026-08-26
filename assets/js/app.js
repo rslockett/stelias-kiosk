@@ -195,7 +195,69 @@
   function onDeck(slides, meta) {
     console.log('[kiosk] deck updated:', slides.length, 'slides from', meta.source);
     announcementSlides = slides;
+    if (meta && meta.stamp) publishStamp = meta.stamp;
+    renderFreshness();
     applyDeck(mergedDeck());
+  }
+
+  /* ----------------------------------------------------------- freshness -- */
+
+  /*
+   * The line in the bottom corner saying when these announcements were put up.
+   *
+   * It exists to answer one question, asked from inside the hall: "I published
+   * ten minutes ago — is this screen showing it?" Nothing else in the system
+   * can answer that. The editor verifies the Sheet and stops there; it never
+   * hears from the Pi, so an unplugged television looks exactly like a working
+   * one from a laptop in the office.
+   *
+   * The publish time comes from the Sheet's own "Published At" column, which
+   * is the same value the editor displays. So the two show the same number,
+   * and confirming the hall is current is a matter of reading it rather than
+   * trusting anything.
+   *
+   * "Checked" is the second half, and answers the other failure: a screen
+   * showing a perfectly good publish time from Tuesday because it stopped
+   * being able to reach Google on Wednesday.
+   */
+
+  let publishStamp = null;
+  let lastCheckedAt = null;
+
+  function clockTime(d) {
+    return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })
+            .replace(/\s?([AP])M/i, (_, p) => ' ' + p.toLowerCase() + 'm');
+  }
+
+  /** "9:38 pm" today, "Sun 9:38 pm" earlier this week, "12 Aug" beyond that. */
+  function when(d) {
+    const now = new Date();
+    const sameDay = d.toDateString() === now.toDateString();
+    if (sameDay) return clockTime(d);
+    if (now - d < 6 * 24 * 3600 * 1000) {
+      return d.toLocaleDateString([], { weekday: 'short' }) + ' ' + clockTime(d);
+    }
+    return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  }
+
+  function renderFreshness() {
+    const el = document.getElementById('freshness');
+    if (!el) return;
+
+    const parts = [];
+
+    if (publishStamp && publishStamp.at) {
+      const d = new Date(publishStamp.at);
+      if (!isNaN(d)) {
+        parts.push('Updated ' + when(d) +
+          (publishStamp.by ? ' by ' + publishStamp.by : ''));
+      }
+    }
+
+    if (lastCheckedAt) parts.push('checked ' + clockTime(new Date(lastCheckedAt)));
+
+    el.textContent = parts.join(' · ');
+    el.hidden = !parts.length;
   }
 
   function onSignupSlide(kind, slide) {
@@ -211,6 +273,10 @@
   }
 
   function onStatus(status) {
+    if (status.checkedAt) {
+      lastCheckedAt = status.checkedAt;
+      renderFreshness();
+    }
     if (!CFG.showOfflineIndicator || !offlineEl) return;
     offlineEl.hidden = !!status.online;
     offlineEl.title = status.message || '';

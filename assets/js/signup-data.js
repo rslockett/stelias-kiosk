@@ -138,12 +138,11 @@
 
     async function refresh() {
       try {
-        const url = opts.csvUrl +
-          (opts.csvUrl.indexOf('?') === -1 ? '?' : '&') + '_ts=' + Date.now();
-        const res = await fetch(url, { cache: 'no-store' });
-        if (!res.ok) throw new Error('responded ' + res.status);
-        const text = await res.text();
-        if (/^\s*</.test(text)) throw new Error('got a web page instead of CSV');
+        // Deck.fetchCsv rather than a bare fetch: it retries the intermittent
+        // redirect Google's published CSVs occasionally answer with, which is
+        // what put "could not reach the Holy Bread sheet" in the console and
+        // fell this slide back to a cached copy for no good reason.
+        const text = await global.Deck.fetchCsv(opts.csvUrl);
 
         saveCache(opts.kind, text);
         const h = global.Deck.hash(text);
