@@ -184,39 +184,91 @@ Length in characters is a poor guide to this and is not used: a 1266-character
 notice can fit comfortably while a shorter one with a QR code and a photo does
 not, because a QR panel takes about a third of the width.
 
-### Tighten it
+---
 
-When an announcement is amber or red, a **Tighten it** button appears beside
-the bar. It suggests a shorter version — never applies one. It does not appear
-on announcements that already fit, because there is nothing for it to do
-there. You see the suggestion next to your own
-words, in an editable box, and choose **Use this**, **Try again**, or
-**Discard**. Nothing is written until you press Use this.
+## Laying announcements out for the screen
 
-Where it comes from depends on the computer:
+A newsletter is written to be read sitting down. A coffee hour television is
+read standing up, in a glance, from thirty feet away. Those want different
+shapes on the page.
 
-- **In an up-to-date Chrome or Edge with the on-device model already
-  downloaded**, it uses that — genuinely free, runs on the machine in front of
-  you, no account and no internet request involved. This is a young part of
-  the browser; if it isn't ready there, nothing breaks.
-- **Everywhere else**, it strips a fixed list of polite filler — "please note
-  that", "we are pleased to announce that", "as a reminder" — that carries no
-  facts, only tone. Works in any browser, always, for nothing.
+**Import the weekly email, and the editor does that reshaping for you** — days
+in a service schedule become headings with the services bulleted under each
+one, a staff list becomes an aligned block of names and addresses, and waffle
+gets cut so the text stays big enough to read from across the hall. It runs
+once, on its own, straight after the import, on the announcements actually
+headed for the TV. A strip across the top says what it's doing, the list stays
+usable underneath it, and **Skip this** stops it.
 
-Either way, no date, time, place, price, phone number or name is ever removed
-by design — but you're shown the result and asked to check before it goes
-anywhere near the Sheet, the same as everything else in this editor.
+Nothing is published without you seeing it. The announcements land in the list
+first and the layout arrives a few seconds later, so you read it over the same
+as anything else here. Anything you'd already started typing into is left
+alone.
 
-The wording rules also drop two things that are specifically wrong on a
-television: "click on this link" (there is nothing to click, and the slide
-already carries a QR code that says what it is for) and pure anticipation
-like "more details coming soon" or "stay tuned".
+Each announcement also has its own button beside the length bar — **Tidy it
+up**, or **Shorten & tidy** on one that's too long. That one shows you the
+result next to your own words and writes nothing until you press **Use this**.
 
-If it reports finding nothing to trim on a red announcement, that is the
-honest answer rather than a failure: a notice that is all dates, times, costs
-and names has no filler in it, and shortening it means deciding what to leave
-out — which is a judgement call, not a rule. Keep the date, the time and who
-to contact, and send the rest to the bulletin.
+> **It is a suggestion, not a fact-checker.** It's told never to change or
+> drop a date, time, place, price or name, and in practice it doesn't — but
+> a screen in the hall is read by people who won't think to check it against
+> the newsletter, so you should.
+
+### Setting it up
+
+It uses Google's Gemini, which is **free at this volume** — a parish
+newsletter is around twenty announcements once a week, against a daily
+allowance in the hundreds. No credit card, no subscription, no bill.
+
+The API key goes in the Sheet's Apps Script, **not** in `config.js` — that
+file is served by GitHub Pages and anything in it is public. As a Script
+Property the key never leaves Google.
+
+1. Go to [aistudio.google.com/apikey](https://aistudio.google.com/apikey),
+   sign in with the parish Google account, and press **Create API key**.
+2. In the Sheet: **Extensions → Apps Script → the gear icon (Project
+   Settings) → Script properties → Add script property**.
+   Property `GEMINI_API_KEY`, value the key. **Save script properties**.
+3. **Deploy → Manage deployments → pencil → New version → Deploy.**
+
+The editor notices on its own — there's nothing to switch on. Skip this
+entirely and everything else still works; the importer's own formatting
+(below) runs regardless, and the buttons that need a key simply don't appear
+rather than appearing and apologising.
+
+> Google's free tier may use what's sent to improve its products. Everything
+> here is going on a screen in a public hall anyway, but it does include the
+> staff email addresses in the newsletter — which are already published to the
+> whole parish, in a Gmail message, on Google's servers. If that isn't a
+> trade you want to make, leave the key out.
+
+### What it does without a key
+
+The importer knows two shapes on its own, with no account and no internet:
+
+- **Service schedules.** A line that is a day — "Saturday", "Sunday, August
+  23" — becomes a heading, and the lines under it with clock times in them
+  become bullets. A line without a time ends the schedule, so the paragraph
+  after it stays a paragraph.
+- **Contact lists.** Two or more lines that each end in an email address are
+  left as they are rather than bulleted, and the screen lays them out as a
+  proper directory.
+
+### Writing it by hand
+
+The box has **B**, *I*, **Heading** and **• List** buttons over it, and they
+type the same plain markers you can type yourself:
+
+| Type this | Get |
+|---|---|
+| `## Saturday` | a sub-heading — a day, or a section within one announcement |
+| `- Vespers 5pm` | a bullet |
+| `**bold**` | **bold** |
+| `*italic*` | *italic* |
+| `Anca Green – anca@…` on consecutive lines | an aligned contact block |
+
+That's the whole format. The Sheet holds plain text either way, so a row typed
+directly into the spreadsheet works exactly the same.
 
 ---
 
@@ -588,7 +640,7 @@ assets/
   js/deck.js        filters by date, polls for changes, caches offline
   js/slide.js       draws a slide, and guarantees it fits on one
   js/live.js        reads and writes the Sheet; decides what "live" means
-  js/tighten.js     suggests a shorter version of an announcement
+  js/format.js      asks the Sheet's script to lay announcements out
   js/eml.js         reads downloaded .eml newsletters
   js/import.js      splits a newsletter into announcements
   js/import-ui.js   the editor itself — list, preview, publishing

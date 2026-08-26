@@ -49,6 +49,10 @@
   const landingEl = $('landing');
   const landingTextEl = $('landing-text');
 
+  const workingEl = $('working');
+  const workingTextEl = $('working-text');
+  const workingSkipEl = $('working-skip');
+
   const frameEl = $('preview-frame');
   const tvScreenEl = $('tv-screen');
   const veilEl = $('tv-veil');
@@ -80,11 +84,12 @@
   let conflict = false;
   let pendingImport = null;   // announcements read from a newsletter, awaiting a choice
 
-  // 'checking' | 'ready' | 'unavailable' — whether Chrome's on-device AI is
-  // ready on this computer. Checked once at boot (see boot() below) so the
-  // "Tighten it" button can say so up front, instead of the editor finding
-  // out only after they've clicked it and waited.
+  // 'checking' | 'ready' | 'unavailable' — whether the Sheet's Apps Script has
+  // a Gemini key behind it and can lay announcements out. Checked once at boot
+  // (see boot() below) so the buttons that depend on it can say so up front,
+  // rather than the editor finding out only after clicking and waiting.
   let aiStatus = 'checking';
+  let aiMessage = '';
 
   const DRAFT_KEY = 'stelias.editor.draft.' + global.Deck.hash(String(CFG.sheetCsvUrl || ''));
   const NAME_KEY = 'stelias.editor.name';
@@ -401,20 +406,25 @@
   }
 
   /**
-   * "Tighten it" only appears on an announcement that is actually too long
-   * for the screen. Offering it on one that already fits was the worst kind
-   * of broken feature: it invited a click, thought about it, and then said
-   * there was nothing to do — which is true, and useless, and looks like a
-   * bug even though the announcement was fine all along.
+   * "Rewrite it for the screen" — offered on any announcement, not only a
+   * long one, because laying one out is as much a job as shortening it. A
+   * schedule that fits perfectly can still be a wall of undifferentiated
+   * lines, and that is worth fixing too.
+   *
+   * Without a key behind the Sheet's script there is nothing to offer, so
+   * nothing is shown. A button that thinks about it and then apologises is
+   * worse than no button — that is exactly what the old word-trimming
+   * fallback did, and why it is gone.
    */
-  function tightenButtonHtml(item) {
+  function rewriteButtonHtml(item) {
+    if (aiStatus !== 'ready') return '';
     const level = meterFor(item).level;
-    if (level !== 'tight' && level !== 'over') return '';
-    return '<button class="btn btn--ghost btn--sm meter__tighten" type="button" data-act="tighten">' +
-      'Tighten it' +
-      (aiStatus === 'ready'
-        ? '<span class="ai-badge" title="Chrome’s on-device AI is ready on this computer — this will use it instead of the plain word-trimming fallback">✨ AI</span>'
-        : '') +
+    const urgent = level === 'tight' || level === 'over';
+    return '<button class="btn btn--ghost btn--sm meter__tighten" type="button" ' +
+      'data-act="rewrite" title="Lay this out for the television — headings, ' +
+      'bullets and contacts, with the waffle cut">' +
+      (urgent ? 'Shorten &amp; tidy' : 'Tidy it up') +
+      '<span class="ai-badge">✨</span>' +
       '</button>';
   }
 
@@ -429,14 +439,27 @@
         '</div>' +
 
         '<div class="field">' +
-          '<label class="field__label">Announcement ' +
-            '<small>— a line starting with “-” becomes a bullet</small></label>' +
+          '<label class="field__label">Announcement</label>' +
+          '<div class="fmtbar">' +
+            '<button type="button" class="fmtbar__btn" data-wrap="**" ' +
+              'title="Bold — wraps the selected words in **">' +
+              '<strong>B</strong></button>' +
+            '<button type="button" class="fmtbar__btn" data-wrap="*" ' +
+              'title="Italic — wraps the selected words in *">' +
+              '<em>I</em></button>' +
+            '<span class="fmtbar__sep" aria-hidden="true"></span>' +
+            '<button type="button" class="fmtbar__btn" data-prefix="## " ' +
+              'title="Sub-heading — a day, or a section within this announcement">' +
+              'Heading</button>' +
+            '<button type="button" class="fmtbar__btn" data-prefix="- " ' +
+              'title="Bullet — one item in a list">• List</button>' +
+          '</div>' +
           '<textarea data-f="body">' + esc(item.body) + '</textarea>' +
           '<div class="meter" title="How much of one TV slide this announcement fills, measured by actually drawing it.">' +
             '<span class="meter__label">Slide space</span>' +
             '<span class="meter__track"><span class="meter__fill"></span></span>' +
             '<span class="meter__note"></span>' +
-            tightenButtonHtml(item) +
+            rewriteButtonHtml(item) +
           '</div>' +
           '<div class="tighten-panel" data-tighten-panel hidden></div>' +
         '</div>' +
@@ -504,7 +527,7 @@
     // and spinning, which would throw away the work in flight.
     const existing = meter.querySelector('.meter__tighten');
     if (existing && existing.classList.contains('is-busy')) return;
-    const wanted = tightenButtonHtml(item);
+    const wanted = rewriteButtonHtml(item);
     if (wanted && !existing) meter.insertAdjacentHTML('beforeend', wanted);
     else if (!wanted && existing) existing.remove();
   }
@@ -964,14 +987,19 @@
     if (act === 'select') { select(i); return; }
 
     if (act === 'shorten') { shortenOnCard(btn, i); return; }
-    if (act === 'tighten' || act === 'tighten-retry') { tightenOnCard(i); return; }
+    if (act === 'rewrite') { rewriteOnCard(i); return; }
 
     if (act === 'tighten-use') {
       const panel = btn.closest('[data-tighten-panel]');
       const text = panel.querySelector('.tighten-panel__text').value;
       items[i].body = text;
+      // The headline is taken only if the rewrite actually proposed a new one;
+      // the panel records it so that accepting the body accepts the pair the
+      // editor was shown, rather than half of it.
+      if (panel.dataset.newTitle) items[i].title = panel.dataset.newTitle;
       panel.hidden = true;
       panel.innerHTML = '';
+      delete panel.dataset.newTitle;
       renderAll();
       const fresh = cardAt(i);
       if (fresh) fresh.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -982,6 +1010,7 @@
       const panel = btn.closest('[data-tighten-panel]');
       panel.hidden = true;
       panel.innerHTML = '';
+      delete panel.dataset.newTitle;
       return;
     }
 
@@ -1079,80 +1108,141 @@
     });
   }
 
-  /* --------------------------------------------------------------- tighten -- */
+  /* ------------------------------------------------------- formatting bar -- */
 
   /**
-   * Ask for a shorter version of one announcement's body, then show it next
-   * to the original for the editor to accept or discard. See tighten.js for
-   * how the suggestion itself is produced — on-device AI where the browser
-   * has it ready, wording rules everywhere else. Nothing here writes to the
-   * announcement; "Use this" (handled in the click delegate above) does.
+   * The bold / italic / heading / bullet buttons over the announcement box.
+   *
+   * These write the same plain markers a person can type by hand — slide.js
+   * reads "##", "-" and "**" and nothing else, and the Sheet holds plain text
+   * either way. The buttons exist because nobody should have to know that, not
+   * because there is a second, richer format hiding behind them.
+   *
+   * Wrapping applies to the selection; prefixes apply to whole lines, and
+   * toggle off if the line already has one, so clicking "List" twice does not
+   * leave "- - Vespers".
    */
-  async function tightenOnCard(i) {
+  listEl.addEventListener('click', e => {
+    const btn = e.target.closest('.fmtbar__btn');
+    if (!btn) return;
+    e.preventDefault();
+
+    const card = btn.closest('.item');
+    const ta = card && card.querySelector('textarea[data-f="body"]');
+    if (!ta) return;
+
+    const i = +card.dataset.i;
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    const value = ta.value;
+
+    if (btn.dataset.wrap) {
+      const mark = btn.dataset.wrap;
+      const chosen = value.slice(start, end) || 'text';
+      ta.value = value.slice(0, start) + mark + chosen + mark + value.slice(end);
+      ta.selectionStart = start + mark.length;
+      ta.selectionEnd = start + mark.length + chosen.length;
+    } else if (btn.dataset.prefix) {
+      const prefix = btn.dataset.prefix;
+      // Grow the selection out to whole lines — a prefix belongs to a line,
+      // not to wherever the cursor happened to be sitting in one.
+      const from = value.lastIndexOf('\n', start - 1) + 1;
+      const toRaw = value.indexOf('\n', end);
+      const to = toRaw === -1 ? value.length : toRaw;
+
+      const lines = value.slice(from, to).split('\n');
+      const allHave = lines.every(l => l.startsWith(prefix));
+      const next = lines.map(l => {
+        const bare = l.replace(/^(?:#{2,4}\s+|[-•*·]\s+)/, '');
+        return allHave ? bare : prefix + bare;
+      }).join('\n');
+
+      ta.value = value.slice(0, from) + next + value.slice(to);
+      ta.selectionStart = from;
+      ta.selectionEnd = from + next.length;
+    }
+
+    ta.focus();
+    items[i].body = ta.value;
+    patchCard(i);
+    renderStatus();
+    saveDraft();
+    pushPreviewSoon();
+    measureSelectedSoon();
+  });
+
+  /* --------------------------------------------------------------- rewrite -- */
+
+  /**
+   * Ask for this announcement laid out for the screen, then show the result
+   * next to the original for the editor to accept or discard. format.js does
+   * the asking; nothing here writes to the announcement — "Use this" (handled
+   * in the click delegate above) does.
+   *
+   * The headline can come back changed as well as the body, because a
+   * newsletter headline is often a sentence and a slide headline has to be
+   * three or four words. Both are shown before either is used.
+   */
+  async function rewriteOnCard(i) {
     const item = items[i];
     const card = cardAt(i);
     if (!item || !card) return;
 
-    const btn = card.querySelector('[data-act="tighten"]');
+    const btn = card.querySelector('[data-act="rewrite"]');
     const panel = card.querySelector('[data-tighten-panel]');
     if (!btn || !panel) return;
 
+    const label = btn.innerHTML;
     btn.disabled = true;
     btn.classList.add('is-busy');
+    btn.textContent = 'Working…';
     panel.hidden = true;
 
     try {
-      const v = global.Slide.lengthVerdict(item.title, item.body, !!item.link);
+      const result = await global.Format.formatOne(item);
 
-      // Tighten.suggest already bounds itself, but that guard lives inside an
-      // experimental browser API this file doesn't control. A second, dumber
-      // timer here means this button can never be stuck spinning no matter
-      // what that API does — worst case, it just says so.
-      const result = await Promise.race([
-        global.Tighten.suggest(item, v.budget),
-        new Promise((resolve, reject) =>
-          setTimeout(() => reject(new Error('tighten timed out')), 25000)),
-      ]);
-
-      if (!result || !result.text || result.text.trim() === String(item.body || '').trim()) {
-        // Say what to do next rather than just reporting failure. On dense
-        // parish notices — dates, times, costs, names — there is often no
-        // filler wording to remove, and "nothing to trim" on its own reads
-        // as the button being broken when it is actually being honest.
-        const fit = item._fit;
-        toast(fit && fit.trimmed
-          ? 'No filler wording to remove here — this one needs a human cut. Keep the date, time and who to contact; send the rest to the bulletin.'
-          : 'Nothing to trim — every word here is carrying information.');
+      if (!result || !result.body) {
+        toast('Nothing came back — try again in a moment.');
         return;
       }
-      renderTightenPanel(panel, result);
+      const same = result.body.trim() === String(item.body || '').trim() &&
+                   result.title.trim() === String(item.title || '').trim();
+      if (same) {
+        toast('This one is already laid out as well as it can be.');
+        return;
+      }
+      renderRewritePanel(panel, item, result);
     } catch (err) {
       console.error(err);
-      toast('That took too long and was cancelled — try again, or trim it by hand');
+      toast(err.message || 'That did not work — try again, or lay it out by hand.');
     } finally {
       btn.disabled = false;
       btn.classList.remove('is-busy');
+      btn.innerHTML = label;
     }
   }
 
-  function renderTightenPanel(panel, result) {
-    const isAi = result.engine !== 'rules';
+  function renderRewritePanel(panel, item, result) {
+    const titleChanged = result.title.trim() !== String(item.title || '').trim();
     panel.hidden = false;
+    panel.dataset.newTitle = result.title;
     panel.innerHTML =
       '<p class="tighten-panel__source">' +
-        '<span class="badge ' + (isAi ? 'badge--ai' : 'badge--rules') + '">' +
-          (isAi ? 'AI' : 'No AI') +
-        '</span> ' +
-        (isAi
-          ? 'Written by Chrome’s on-device AI, running on this computer — nothing was sent anywhere.'
-          : 'Shortened by removing filler phrases, not by AI — the same everywhere, every time.') +
+        '<span class="badge badge--ai">✨ AI</span> ' +
+        'Laid out by Google’s Gemini, through the Sheet’s own script. ' +
+        'Check it against the newsletter before using it — it is a suggestion, ' +
+        'not a fact-checker.' +
       '</p>' +
-      '<p class="tighten-panel__meta">' + plural(result.text.length, 'character') +
-        ' — read it over before using it, the same as anything else here.</p>' +
-      '<textarea class="tighten-panel__text" rows="4">' + esc(result.text) + '</textarea>' +
+      (titleChanged
+        ? '<p class="tighten-panel__meta">Headline becomes <strong>' +
+            esc(result.title) + '</strong></p>'
+        : '') +
+      '<p class="tighten-panel__meta">' + plural(result.body.length, 'character') +
+        ', down from ' + String(item.body || '').length + '.</p>' +
+      '<textarea class="tighten-panel__text" rows="6">' + esc(result.body) + '</textarea>' +
       '<div class="row">' +
         '<button class="btn btn--primary btn--sm" type="button" data-act="tighten-use">Use this</button>' +
-        '<button class="btn btn--ghost btn--sm" type="button" data-act="tighten-retry">Try again</button>' +
+        '<button class="btn btn--ghost btn--sm" type="button" data-act="rewrite">Try again</button>' +
         '<button class="btn btn--ghost btn--sm" type="button" data-act="tighten-discard">Discard</button>' +
       '</div>';
   }
@@ -1242,6 +1332,168 @@
     toast('Added ' + plural(list.length, 'announcement') + ' from ' + label +
       (off ? ' — ' + off + ' switched off for you to check' : ''));
     listEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    autoFormatImported(list);
+  }
+
+  /* ------------------------------------------------- laying out an import -- */
+
+  let formatAbandoned = false;
+
+  function showWorking(text) {
+    workingTextEl.textContent = text;
+    workingEl.hidden = false;
+  }
+
+  function hideWorking() { workingEl.hidden = true; }
+
+  workingSkipEl.addEventListener('click', () => {
+    formatAbandoned = true;
+    hideWorking();
+    toast('Left as imported — you can still tidy any announcement one at a time.');
+  });
+
+  /**
+   * Lay the whole newsletter out for the screen, straight after importing it.
+   *
+   * This is the point of the feature: "import the weekly email" should end
+   * with slides that are ready, not with twenty paragraphs of newsletter prose
+   * to reshape by hand. It runs on its own, once, and only on the
+   * announcements actually headed for the television — a switched-off row is
+   * not going to be read by anybody, so it is not worth the wait.
+   *
+   * Every failure here is survivable and silent-ish by design: the imported
+   * announcements are already in the list and already usable. Losing the
+   * layout pass costs polish, not work.
+   */
+  async function autoFormatImported(list) {
+    formatAbandoned = false;
+
+    const state = await global.Format.available();
+    if (!state.ready) {
+      // Said once, quietly, rather than on every card: this is a setup step
+      // somebody has to go and do, not something to nag about weekly.
+      if (state.reason === 'no key') {
+        toast('Tip: add a free Gemini key to the Sheet’s script and imports get ' +
+              'laid out for the screen automatically. See sheet/Code.gs.');
+      }
+      return;
+    }
+
+    const targets = list.filter(it => it.include !== false &&
+                                      String(it.body || '').trim());
+    if (!targets.length) return;
+
+    showWorking('Laying ' + plural(targets.length, 'announcement') + ' out for the screen…');
+
+    // What was sent, remembered, so that anything typed into a card during the
+    // fifteen seconds this takes is not silently overwritten when the answer
+    // lands. Somebody's own words always win over a suggestion.
+    const sentBodies = targets.map(it => it.body);
+
+    try {
+      const out = await global.Format.format(targets, msg => showWorking(msg));
+      if (formatAbandoned) return;
+
+      let changed = 0;
+      let skipped = 0;
+      targets.forEach((item, n) => {
+        const r = out[n];
+        if (!r || !r.body) return;
+        if (item.body !== sentBodies[n]) { skipped++; return; }
+        if (r.body.trim() === item.body.trim() && r.title.trim() === item.title.trim()) return;
+        item.body = r.body;
+        if (r.title) item.title = r.title;
+        changed++;
+      });
+
+      renderAll();
+
+      const stillLong = await tightenWhatDidNotFit(targets);
+
+      hideWorking();
+      renderAll();
+      toast(changed
+        ? plural(changed, 'announcement') + ' laid out for the screen — check them over before publishing.' +
+          (skipped ? ' ' + skipped + ' left alone because you had edited ' +
+                     (skipped === 1 ? 'it' : 'them') + '.' : '') +
+          (stillLong ? ' ' + plural(stillLong, 'one') + ' still too long — those need a human cut.' : '')
+        : 'Those were already in good shape for the screen.');
+    } catch (err) {
+      console.error(err);
+      hideWorking();
+      if (!formatAbandoned) {
+        toast('Could not lay these out automatically (' + err.message +
+              ') — they are still here, just as the newsletter had them.');
+      }
+    }
+  }
+
+  /**
+   * A second pass over whatever still does not fit.
+   *
+   * The first pass writes blind — it has never seen the slide. This one runs
+   * after every announcement has been drawn at a real 1920x1080 and measured,
+   * so it can hand back a number: this rendered at 30px, it needs to lose
+   * about half its length. "Make it shorter" already produced something
+   * shorter that still did not fit; a budget is the thing that was missing.
+   *
+   * It is also the only pass allowed to leave detail out. A notice that is all
+   * dates, tuition tiers and instructor names cannot be compressed by better
+   * writing — somebody has to decide what goes to the bulletin instead.
+   *
+   * Returns how many are still too long after it, which is an honest number
+   * and sometimes not zero: some announcements genuinely need a person.
+   */
+  async function tightenWhatDidNotFit(candidates) {
+    if (formatAbandoned) return 0;
+
+    await measureUnmeasured();
+    for (const item of candidates) await measureItem(items.indexOf(item));
+
+    const tooLong = candidates.filter(it => meterFor(it).level === 'over');
+    if (!tooLong.length) return 0;
+
+    showWorking(plural(tooLong.length, 'announcement') + ' still too long — trimming ' +
+                (tooLong.length === 1 ? 'it' : 'them') + ' to fit…');
+
+    // How much has to go, from what the screen actually did. A slide that had
+    // to shrink to 30px against a 46px floor is carrying roughly (30/46)^2 of
+    // the text it has room for — area, not height, because narrower text also
+    // reflows onto fewer lines. Floored well above nothing so the budget stays
+    // a real announcement rather than a headline.
+    const withBudgets = tooLong.map(it => {
+      const fit = it._fit || {};
+      const px = fit.px || SMALL_TEXT_PX;
+      const ratio = fit.trimmed ? 0.55 : Math.min(0.9, Math.pow(px / COMFORTABLE_PX, 2));
+      return Object.assign({}, it, {
+        maxChars: Math.max(180, Math.round(String(it.body || '').length * ratio)),
+      });
+    });
+
+    const sent = tooLong.map(it => it.body);
+
+    try {
+      const out = await global.Format.format(withBudgets, msg => showWorking(msg),
+        { mode: 'tighten' });
+      if (formatAbandoned) return 0;
+
+      tooLong.forEach((item, n) => {
+        const r = out[n];
+        if (!r || !r.body || item.body !== sent[n]) return;
+        item.body = r.body;
+        if (r.title) item.title = r.title;
+      });
+
+      for (const item of tooLong) await measureItem(items.indexOf(item));
+      return tooLong.filter(it => meterFor(it).level === 'over').length;
+    } catch (err) {
+      // The first pass already landed and is already an improvement. Losing
+      // the second one leaves a few announcements flagged "Too long", which is
+      // exactly what the editor is for.
+      console.warn('[format] tightening pass did not run:', err.message);
+      return tooLong.length;
+    }
   }
 
   $('landing-replace').addEventListener('click', () => {
@@ -1556,15 +1808,16 @@
   });
 
   /**
-   * Find out once, in the background, whether this computer has Chrome's
-   * on-device AI ready — so "Tighten it" can say so up front rather than the
-   * editor only learning it after clicking and waiting. Never blocks boot;
-   * whatever answer comes back just updates the button next time it's safe
-   * to redraw one.
+   * Find out once, in the background, whether the Sheet's script can lay
+   * announcements out — so the buttons that depend on it can say so up front
+   * rather than the editor only learning it after clicking and waiting. Never
+   * blocks boot; whatever answer comes back just updates the buttons next
+   * time it's safe to redraw one.
    */
   function checkAiStatus() {
-    global.Tighten.readyEngine().then(engine => {
-      aiStatus = engine ? 'ready' : 'unavailable';
+    global.Format.available().then(state => {
+      aiStatus = state.ready ? 'ready' : 'unavailable';
+      aiMessage = state.message || '';
       // Rebuilding the selected card's markup would blow away whatever
       // someone is mid-typing into it — safe to do only when nothing in it
       // currently has the keyboard's attention.

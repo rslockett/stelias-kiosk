@@ -65,6 +65,18 @@ window.KIOSK_CONFIG = {
   // normal address from your browser's bar when the Sheet is open.
   sheetEditUrl: 'https://docs.google.com/spreadsheets/d/1bZeYRQh2ITbIIhzV1l-Fm6fUGmEPr29oeYc3U3Azc3o/edit?gid=0#gid=0',
 
+  // NOTE — laying announcements out automatically:
+  //
+  // There is no setting here for that, and that is deliberate. It needs a
+  // Gemini API key, which is a real credential, and THIS FILE IS PUBLIC —
+  // GitHub Pages serves it to anyone who asks, so a key here could be lifted
+  // by anybody who viewed the page source.
+  //
+  // The key goes in the Sheet's Apps Script instead, as a Script Property,
+  // where it never leaves Google. It is free, and needs no credit card.
+  // Setup is about two minutes and is written out at the top of sheet/Code.gs.
+  // The editor works this out for itself — nothing to switch on here.
+
 
   /* --------------------------------------------------------------------------
      3. TODAY IN THE CHURCH  (saints, fasting rule, from GOARCH)

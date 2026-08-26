@@ -317,6 +317,17 @@ body::after {
 .slide__body p { margin: 0 0 0.5em; }
 .slide__body p:last-child { margin-bottom: 0; }
 
+/* A body with headings, bullets or contacts in it becomes a left-aligned
+   block, centred as a whole. Centring the individual lines instead leaves
+   every bullet starting at a different x, which is the layout equivalent of
+   mumbling — and puts a centred day heading above a left-aligned list, so the
+   two read as unrelated. */
+.slide__body--structured {
+  display: inline-block;
+  text-align: left;
+  max-width: 100%;
+}
+
 .slide__list {
   margin: 0 0 0.5em;
   padding-left: 1.1em;
@@ -334,6 +345,68 @@ body::after {
   border-radius: 50%;
   background: var(--gold-deep);
 }
+
+/* A sub-heading inside one announcement — a day in a service schedule, a
+   section in a longer notice. Set in the sans face so it reads as a label
+   against the Garamond body rather than as another sentence, and given far
+   more space above than below so it visibly belongs to what follows it. */
+.slide__sub {
+  margin: 0.85em 0 0.3em;
+  font-family: 'Montserrat', system-ui, sans-serif;
+  font-size: 0.66em;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--gold-deep);
+}
+.slide__sub:first-child { margin-top: 0; }
+
+/* The rules below stop a heading and the list it introduces drifting apart
+   once the fitting routine shrinks everything: the gap between them is the
+   only thing telling a reader which events belong to which day. */
+.slide__sub + .slide__list,
+.slide__sub + p { margin-top: 0; }
+
+/* ---- a contact block: names and addresses, laid out as one thing ---- */
+
+/* Every row is built identically so all of them wrap identically. A directory
+   where one name fits beside its address and the next two spill onto a second
+   line reads as a mistake — and it is the raggedness people notice, not the
+   wrap. Name above, address below, always, every row the same shape. */
+.slide__contacts {
+  margin: 0.15em 0 0.5em;
+  display: grid;
+  gap: 0.5em 2em;
+  text-align: left;
+  justify-content: center;
+}
+.slide__contacts:last-child { margin-bottom: 0; }
+
+/* Two abreast once there are enough of them to make a column of pairs look
+   sparse, which on a QR slide is where the width runs out anyway. */
+@media (min-aspect-ratio: 4/3) {
+  .slide--text .slide__contacts { grid-template-columns: repeat(2, auto); }
+}
+
+.slide__contact { min-width: 0; }
+
+.slide__contact dt {
+  font-weight: 600;
+  color: var(--oxblood);
+  line-height: 1.25;
+}
+
+.slide__contact dd {
+  margin: 0.04em 0 0;
+  font-family: 'Montserrat', system-ui, sans-serif;
+  font-size: 0.76em;
+  letter-spacing: 0.005em;
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
+}
+
+.slide__body strong { font-weight: 700; color: var(--oxblood); }
+.slide__body em { font-style: italic; }
 
 .slide__truncated {
   margin-top: 0.6em !important;

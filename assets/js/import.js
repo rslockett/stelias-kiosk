@@ -226,6 +226,93 @@
   // partway through the line, the shape of one entry in a directory or list.
   const LISTY_SEP = /\s[–—-]\s|:\s+\S/;
 
+  // A line that is somebody and their address, with nothing after it. slide.js
+  // lays a run of these out as a proper contact block — names aligned, every
+  // row the same shape — so they must NOT be turned into bullets on the way in.
+  // Bulleting them was what produced the ragged directory: one entry fitting
+  // on its line and the next two wrapping, all three differently.
+  const CONTACT_LINE =
+    /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}[).,\s]*$/;
+
+  function looksLikeContactRun(lines) {
+    return lines.length >= 2 && lines.every(l => CONTACT_LINE.test(l.trim()));
+  }
+
+  /* --------------------------------------------------------- day headings -- */
+
+  const DAY_NAME = '(?:sun|mon|tues?|wed(?:nes)?|thur?s?|fri|sat(?:ur)?)(?:day)?';
+
+  // "Saturday" / "Sunday, August 23" / "Friday 10/16" — a day, optionally
+  // carrying its date. The date part is spelled out rather than left as a
+  // wildcard so that "Sunday school resumes in September" stays a sentence.
+  const DAY_HEADING_RE = new RegExp(
+    '^' + DAY_NAME +
+    '(?:\\s*,?\\s*(?:' + MONTH_RE + '\\s+\\d{1,2}|\\d{1,2}\\s*[/-]\\s*\\d{1,2}))?' +
+    '(?:\\s*,?\\s*20\\d{2})?$', 'i');
+
+  // "10am", "5 pm", "8:30am", "noon". The presence of a clock time is what
+  // separates one of a day's services from the paragraph that follows the
+  // schedule — "Please note:" is short and looks like everything else, but it
+  // has no time in it, and nothing on a service schedule doesn't.
+  const TIME_RE = /\b(?:\d{1,2}(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)|noon|midnight)\b/i;
+
+  /**
+   * Is this line a day, standing on its own — "Saturday", "Sunday, August 23"?
+   *
+   * A service schedule is the one announcement shape that is genuinely a
+   * table: days, and what happens on each. Left as plain lines every one of
+   * them renders identically, so the reader has to work out from the words
+   * alone which events belong to which day. Marking the days as sub-headings
+   * and the events as bullets is the whole difference between a list and a
+   * paragraph that happens to contain times.
+   */
+  function isDayHeading(line) {
+    const l = line.trim().replace(/[:•]\s*$/, '');
+    return l.length <= 42 && DAY_HEADING_RE.test(l);
+  }
+
+  /**
+   * Turn a run of "day, then the things happening that day" into sub-headings
+   * and bullets. Only fires when at least one day line has events under it —
+   * a single date mentioned in a sentence is not a schedule.
+   */
+  function structureSchedule(text) {
+    const lines = String(text).split('\n');
+    if (!lines.some(l => l.trim() && isDayHeading(l))) return text;
+
+    const out = [];
+    let underDay = false;
+    let events = 0;
+
+    for (const raw of lines) {
+      const line = raw.trim();
+      if (!line) { out.push(''); continue; }
+
+      if (isDayHeading(line)) {
+        out.push('## ' + line.replace(/[:•]\s*$/, '').trim());
+        underDay = true;
+        continue;
+      }
+
+      // Beneath a day, a line with a clock time in it is one of that day's
+      // services. Anything else — a note, a caveat, a paragraph — means the
+      // schedule has ended and ordinary prose has resumed.
+      if (underDay && !BULLET_RE.test(line)) {
+        if (TIME_RE.test(line) && line.length <= 90) {
+          out.push('- ' + line);
+          events++;
+          continue;
+        }
+        underDay = false;
+      }
+
+      out.push(line);
+    }
+
+    if (!events) return text;
+    return out.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  }
+
   /**
    * A run of short "deliberate" lines (see unwrapParagraphs above) that each
    * look like one entry in a list — names and emails, line items, and the
@@ -240,6 +327,9 @@
       const lines = p.split('\n').filter(l => l.trim());
       if (lines.length < 2) return p;
       if (lines.some(l => BULLET_RE.test(l))) return p;
+      // A staff directory is a contact block, not a bullet list — see
+      // CONTACT_LINE above. Leave it alone and slide.js will align it.
+      if (looksLikeContactRun(lines)) return p;
       // A real directory/list entry reads in one glance. A heading line
       // followed by a full descriptive paragraph can also match the
       // separator test below, so rule those out by length first.
@@ -320,7 +410,7 @@
         // Pull the URL out first: while it is still on its own line, removing
         // it also cleanly removes the "Sign up here:" that introduced it.
         const { link, body } = extractLink(b.body);
-        const text = autoBulletize(unwrapParagraphs(body));
+        const text = structureSchedule(autoBulletize(unwrapParagraphs(body)));
         return {
           title: b.title,
           body: text,
@@ -466,7 +556,8 @@
         // No rejoining here: these lines came from real block and <br>
         // boundaries in the HTML, so a short line is a deliberate one — a
         // service time, a name, an address — not an accident of wrapping.
-        body: autoBulletize(unwrapParagraphs(body, { rejoinWrapped: false })),
+        body: structureSchedule(
+          autoBulletize(unwrapParagraphs(body, { rejoinWrapped: false }))),
         link: finalLink,
         linkLabel: finalLabel,
         end: findDate(g.title + '\n' + body),
@@ -552,7 +643,7 @@
   global.Importer = {
     split, splitEml, splitBlocks, cleanup, toTsv, toMatrix, findDate, extractLink,
     looksLikeHeading, cleanHeading, unwrapParagraphs, autoBulletize, defaultLabelFor,
-    linkPairs, COLUMNS,
+    structureSchedule, isDayHeading, linkPairs, COLUMNS,
   };
 
 })(window);

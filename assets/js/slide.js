@@ -69,27 +69,227 @@
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
+  /* ------------------------------------------------------- inline markup -- */
+
+  // An email address, wherever it sits in a line. Used both to spot a contact
+  // row and to split the person's name off the front of it.
+  const EMAIL_RE = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/;
+
   /**
-   * Render the body text. A Sheet cell can contain line breaks, and people
-   * naturally write bullet lists, so both are honoured.
+   * `**bold**` and `*italic*` inside a line of body text.
+   *
+   * Runs on already-escaped text, which is safe because escapeHtml leaves `*`
+   * and `_` alone — so the only angle brackets in the string at this point are
+   * ones this function put there itself.
+   *
+   * Bold is matched before italic, otherwise the single-asterisk rule eats the
+   * first two asterisks of a `**bold**` run and leaves the closing pair
+   * stranded.
    */
+  function inlineMarkup(escaped) {
+    return escaped
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/(^|[\s(])\*([^*\n]+)\*(?=[\s).,;:!?]|$)/g, '$1<em>$2</em>')
+      .replace(/(^|[\s(])_([^_\n]+)_(?=[\s).,;:!?]|$)/g, '$1<em>$2</em>');
+  }
+
+  function inline(text) {
+    return inlineMarkup(escapeHtml(text));
+  }
+
+  /* -------------------------------------------------------- body blocks -- */
+
+  const BULLET_LINE = /^[-•*·▪▸]\s+(.*)$/;
+  const SUBHEAD_LINE = /^#{2,4}\s+(.*)$/;
+
+  // "Saturday", "Sunday, August 23", "Friday 10/16" — a day standing alone on
+  // its line. The date part is spelled out rather than left open so that
+  // "Sunday school resumes in September" stays the sentence it is.
+  const DAY_LINE = new RegExp(
+    '^(?:sun|mon|tues?|wed(?:nes)?|thur?s?|fri|sat(?:ur)?)(?:day)?' +
+    '(?:\\s*,?\\s*(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\\.?' +
+    '\\s+\\d{1,2}|\\d{1,2}\\s*[/-]\\s*\\d{1,2}))?(?:\\s*,?\\s*20\\d{2})?:?$', 'i');
+
+  /**
+   * A day line with a bulleted list directly under it is a schedule, whether
+   * or not anybody typed the "##".
+   *
+   * This exists so that announcements already sitting in the Sheet — written
+   * before the markup did — lay themselves out properly tonight rather than
+   * next time somebody re-imports the newsletter. Requiring the very next line
+   * to be a bullet is what keeps it safe: prose does not do that.
+   */
+  function isImplicitDayHeading(line, next) {
+    return line.length <= 42 && DAY_LINE.test(line) && !!next && BULLET_LINE.test(next);
+  }
+
+  /**
+   * Split a contact line into the person and the address.
+   *
+   * "Fr. Elias Murphy, Pastor – fr.elias@sainteliaschurch.org" is one line in
+   * the newsletter and two pieces of information on the screen. Anything
+   * before the address is the person; the dash, colon or "at" that introduced
+   * the address is punctuation from the sentence, not part of either.
+   */
+  function splitContact(line) {
+    const m = line.match(EMAIL_RE);
+    if (!m) return null;
+    const name = line.slice(0, m.index)
+      .replace(/\s*(?:[–—:-]|\bat\b|\be-?mail\b)\s*$/i, '')
+      .replace(/[(\s]+$/, '')
+      .trim();
+    const after = line.slice(m.index + m[0].length).replace(/^[)\s.,]+/, '').trim();
+    return { name: name, email: m[0], trailing: after };
+  }
+
+  /**
+   * Is this run of lines a contact block — a staff list, "who to ask about
+   * what" — rather than ordinary prose that happens to mention an address?
+   *
+   * Two shapes count, because newsletters use both and often mix them in one
+   * list: the whole entry on one line, and the name on one line with its
+   * address on the next. Either way the screen renders them identically, which
+   * is the entire point: three contacts that each wrap differently look like a
+   * mistake, and it is the inconsistency people notice rather than the wrap.
+   */
+  function takeContactBlock(lines, start) {
+    const rows = [];
+    let i = start;
+
+    while (i < lines.length) {
+      const line = lines[i];
+      if (!line || BULLET_LINE.test(line) || SUBHEAD_LINE.test(line)) break;
+
+      const here = splitContact(line);
+
+      // Name and address on one line.
+      if (here && here.name) {
+        // A whole sentence that merely mentions an address is prose, not a
+        // directory entry — but the test for that cannot be sentence
+        // punctuation, because half the names in an Orthodox parish are
+        // "Fr.", "Dcn." or "Sh." and every one of them would fail it. Length
+        // rules out the obvious prose, and the real guard is structural: a
+        // run of consecutive address lines, checked at the end of this loop.
+        // Prose does not come two and three lines deep in that shape.
+        if (here.name.length > 60) break;
+        // The address has to end the line, give or take punctuation. In prose
+        // it sits mid-sentence with the rest of the thought after it.
+        if (here.trailing.length > 2) break;
+        rows.push(here);
+        i++;
+        continue;
+      }
+
+      // Address alone on its line, with the name on the line before.
+      if (here && !here.name && rows.length && !rows[rows.length - 1].email) {
+        rows[rows.length - 1].email = here.email;
+        i++;
+        continue;
+      }
+
+      // A bare name, expecting its address on the next line.
+      const next = lines[i + 1];
+      const nextParts = next ? splitContact(next) : null;
+      if (!here && nextParts && !nextParts.name && line.length <= 60) {
+        rows.push({ name: line, email: nextParts.email, trailing: '' });
+        i += 2;
+        continue;
+      }
+
+      break;
+    }
+
+    // One contact on its own is a sentence, not a directory — leave it as
+    // prose so a lone "email Anca to sign up" doesn't become a styled block.
+    if (rows.length < 2) return null;
+    return { rows: rows.filter(r => r.email), next: i };
+  }
+
+  function contactsHtml(rows) {
+    return '<dl class="slide__contacts">' + rows.map(r =>
+      '<div class="slide__contact">' +
+        (r.name ? '<dt>' + inline(r.name) + '</dt>' : '') +
+        '<dd>' + escapeHtml(r.email) + '</dd>' +
+      '</div>'
+    ).join('') + '</dl>';
+  }
+
+  /**
+   * Render the body text.
+   *
+   * A Sheet cell holds plain text, so the markup people can use is deliberately
+   * tiny and guessable — the kind of thing someone types anyway without being
+   * told it means something:
+   *
+   *   ## Saturday          a sub-heading, for a day or a section within a slide
+   *   - Vespers 5pm        a bullet
+   *   **bold**  *italic*   emphasis
+   *
+   * On top of that, a run of two or more lines carrying email addresses is
+   * recognised as a contact block on its own and laid out as one, because
+   * nobody should have to know a syntax to get a staff directory to line up.
+   */
+  /**
+   * Does this body have structure in it — sub-headings, bullets, contacts —
+   * as opposed to being plain sentences? A structured body is laid out as a
+   * left-aligned block centred on the slide, because a bulleted list under a
+   * centred day heading looks like two different slides fighting.
+   */
+  function hasStructure(text) {
+    const lines = String(text).split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    if (lines.some((l, n) => SUBHEAD_LINE.test(l) || BULLET_LINE.test(l) ||
+                             isImplicitDayHeading(l, lines[n + 1]))) return true;
+    for (let i = 0; i < lines.length; i++) {
+      if (takeContactBlock(lines, i)) return true;
+    }
+    return false;
+  }
+
   function renderBody(text) {
     const lines = String(text).split(/\r?\n/).map(l => l.trim());
     let html = '';
     let inList = false;
 
-    for (const line of lines) {
+    const closeList = () => { if (inList) { html += '</ul>'; inList = false; } };
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
       if (!line) continue;
-      const bullet = line.match(/^[-•*·]\s+(.*)$/);
+
+      const sub = line.match(SUBHEAD_LINE);
+      if (sub) {
+        closeList();
+        html += '<h3 class="slide__sub">' + inline(sub[1]) + '</h3>';
+        continue;
+      }
+
+      const nextLine = lines.slice(i + 1).find(l => l);
+      if (isImplicitDayHeading(line, nextLine)) {
+        closeList();
+        html += '<h3 class="slide__sub">' + inline(line.replace(/:$/, '')) + '</h3>';
+        continue;
+      }
+
+      const bullet = line.match(BULLET_LINE);
       if (bullet) {
         if (!inList) { html += '<ul class="slide__list">'; inList = true; }
-        html += '<li>' + escapeHtml(bullet[1]) + '</li>';
-      } else {
-        if (inList) { html += '</ul>'; inList = false; }
-        html += '<p>' + escapeHtml(line) + '</p>';
+        html += '<li>' + inline(bullet[1]) + '</li>';
+        continue;
       }
+
+      const contacts = takeContactBlock(lines, i);
+      if (contacts) {
+        closeList();
+        html += contactsHtml(contacts.rows);
+        i = contacts.next - 1;
+        continue;
+      }
+
+      closeList();
+      html += '<p>' + inline(line) + '</p>';
     }
-    if (inList) html += '</ul>';
+
+    closeList();
     return html || '<p></p>';
   }
 
@@ -149,10 +349,20 @@
         '<div class="slide__fit">' +
           '<h2 class="slide__title">' + escapeHtml(slide.title) + '</h2>' +
           '<div class="slide__rule" aria-hidden="true"></div>' +
-          '<div class="slide__body">' + renderBody(slide.body) + '</div>' +
+          '<div class="slide__body' +
+            (hasStructure(slide.body) ? ' slide__body--structured' : '') + '">' +
+            renderBody(slide.body) +
+          '</div>' +
         '</div>' +
       '</div>' +
       qrHtml;
+
+    // Trimming works from this rather than from the rendered text. Reading it
+    // back out of the DOM would lose every "##" and "-" along the way, so a
+    // slide that had to be cut would also silently lose its sub-headings and
+    // bullets — the trim would reformat the slide as well as shorten it.
+    const bodyEl = el.querySelector('.slide__body');
+    if (bodyEl) bodyEl.dataset.source = String(slide.body == null ? '' : slide.body);
 
     return el;
   }
@@ -276,14 +486,14 @@
     if (!bodyEl) return false;
 
     const NOTICE = '<p class="slide__truncated">Full details in this week’s bulletin</p>';
-    const full = bodyEl.textContent;
+    const full = bodyEl.dataset.source != null ? bodyEl.dataset.source : bodyEl.textContent;
 
     // The notice has to be part of every measurement. Measuring without it and
     // appending it afterwards makes the slide overflow again by exactly the
     // height of the line we forgot to account for.
     const render = n => {
-      const cut = preferSentenceBoundary(cutAtWord(full, n));
-      const suffix = /[.!?]$/.test(cut) ? '' : '…';
+      const cut = dropDanglingHeading(preferSentenceBoundary(cutAtWord(full, n)));
+      const suffix = /[.!?]$/.test(cut) || /\n\s*[-•*·]/.test(cut) ? '' : '…';
       bodyEl.innerHTML = renderBody(cut + suffix) + NOTICE;
     };
 
@@ -323,6 +533,16 @@
     return m[0].trim();
   }
 
+  /**
+   * A cut that lands just after a sub-heading leaves "Sunday" sitting at the
+   * bottom of the slide with nothing under it, which reads as though the
+   * screen broke rather than that it ran out of room. Drop the orphan; the
+   * "full details in the bulletin" line beneath says the rest is elsewhere.
+   */
+  function dropDanglingHeading(cut) {
+    return cut.replace(/\n\s*#{2,4}\s+[^\n]*$/, '').trim();
+  }
+
   /* --------------------------------------------------------------- length -- */
 
   /**
@@ -345,6 +565,7 @@
     makeQrSvg,
     qrDensity,
     renderBody,
+    hasStructure,
     escapeHtml,
     lengthVerdict,
   };

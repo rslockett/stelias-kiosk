@@ -40,6 +40,29 @@
  *   don't have to wait until tomorrow to see it working. Re-running that
  *   function later is harmless — it replaces the old trigger rather than
  *   adding a second one.
+ *
+ * OPTIONAL — LETTING THE EDITOR FORMAT ANNOUNCEMENTS FOR YOU:
+ *   With a free Google AI Studio key, "Import the weekly email" also lays
+ *   each announcement out for the screen: days become headings, services
+ *   become bullets, staff lists become aligned contact blocks, and waffle
+ *   gets cut so the text stays big enough to read from across the hall.
+ *
+ *   The key is free, needs no credit card, and — unlike SHARED_SECRET —
+ *   never leaves this script. It is NOT put in config.js, because config.js
+ *   is published on GitHub Pages where anybody can read it.
+ *
+ *     1. Go to https://aistudio.google.com/apikey and sign in with the
+ *        parish Google account. Press "Create API key". Copy it.
+ *     2. In this Apps Script editor: the gear icon (Project Settings) ->
+ *        scroll to "Script properties" -> "Add script property".
+ *          Property:  GEMINI_API_KEY
+ *          Value:     the key you just copied
+ *        Press "Save script properties".
+ *     3. Deploy -> Manage deployments -> pencil -> New version -> Deploy.
+ *
+ *   That's it — the editor notices on its own. To turn it off again, delete
+ *   the script property; the editor goes back to saying so plainly rather
+ *   than pretending.
  * ---------------------------------------------------------------------------
  */
 
@@ -76,6 +99,13 @@ function doPost(e) {
 
     if (payload.action === 'signup') {
       return handleSignup(payload);
+    }
+
+    if (payload.action === 'format') {
+      if (payload.secret !== SHARED_SECRET) {
+        return jsonOut({ ok: false, error: 'Wrong secret.' });
+      }
+      return handleFormat(payload);
     }
 
     if (payload.secret !== SHARED_SECRET) {
@@ -180,9 +210,421 @@ function ensureSignupHeaders(sheet) {
   if (changed) sheet.getRange(1, 1, 1, SIGNUP_HEADERS.length).setValues([firstRow]);
 }
 
-// A GET request is just for checking the deployment is alive and reachable.
-function doGet() {
+/* ===========================================================================
+   Laying announcements out for the screen
+   ---------------------------------------------------------------------------
+   A newsletter is written to be read sitting down, one line after another. A
+   coffee hour television is read standing up, in a glance, from thirty feet
+   away. Those want different shapes on the page, and turning one into the
+   other is the job nobody in a parish office has time to do twenty times every
+   Monday morning.
+
+   So the editor asks this script, and this script asks Google's Gemini model,
+   which is free at the volume a parish newsletter uses — twenty or so
+   announcements, once a week, against a daily allowance in the hundreds.
+
+   WHY THIS LIVES HERE AND NOT IN THE BROWSER
+   The API key is a real credential. config.js is served by GitHub Pages, so
+   anything in it is public; a key there could be lifted by anyone who viewed
+   the page source and used until Google shut the account. Kept as a Script
+   Property it never leaves Google's servers, and the page only ever talks to
+   this script — which already has a shared secret in front of it.
+
+   WHY A JOB ID AND NOT JUST A REPLY
+   Apps Script web apps don't return the CORS headers a browser needs in order
+   to read a POST response, which is the same wall publishing hit (see the note
+   above publish() in live.js). So this does what publishing does: the work is
+   sent one way, and the answer is collected separately — here by a JSONP GET
+   that a <script> tag can read, keyed by the job id the browser made up.
+   =========================================================================== */
+
+// Free tier, no credit card: https://aistudio.google.com/apikey
+var GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/interactions';
+
+// Tried in order, newest first. The newest model is the best writer and also
+// by far the busiest — "currently experiencing high demand" is a reply a
+// parish office will genuinely meet, and did on the first day this was
+// tested — so there are older, quieter ones queued behind it.
+//
+// Falling back costs almost nothing here. Laying out a church announcement is
+// not hard work for any of these models, and a very slightly plainer rewrite
+// on a Monday morning beats an error message on a Monday morning.
+var GEMINI_MODELS = [
+  'gemini-3.7-flash',
+  'gemini-3.6-flash',
+  'gemini-3.5-flash',
+  'gemini-3.5-flash-lite',
+];
+
+// One try each, then move on. Asking an overloaded model a second time mostly
+// buys another thirty-second wait for the same refusal — with four models to
+// work through, moving on is both faster and likelier to succeed. The backoff
+// is a courtesy pause between models, not a retry delay.
+var GEMINI_ATTEMPTS = 1;
+var GEMINI_BACKOFF_MS = 1200;
+
+// Results wait here for the browser to come and collect them. Twenty minutes
+// is far longer than the few seconds it actually takes, and short enough that
+// nothing accumulates.
+var FORMAT_CACHE_SECONDS = 1200;
+
+// CacheService refuses a value over 100KB. Long results are split across
+// numbered keys and stitched back together on collection.
+var CACHE_CHUNK = 90000;
+
+function geminiKey() {
+  return PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY') || '';
+}
+
+/**
+ * What the model is told an announcement should look like on this television.
+ *
+ * The rules about never inventing and never dropping a date are the important
+ * ones. Everything a parish puts on a screen is either an instruction ("bring
+ * a dish", "sign up by the 4th") or a time and a place, and a rewrite that
+ * loses one of those is worse than no rewrite at all — it is confidently
+ * wrong, in the hall, all week, where nobody thinks to check it against the
+ * newsletter.
+ */
+/**
+ * The second pass, for announcements that came back from the first one still
+ * too long to read from across the hall.
+ *
+ * The editor measures every announcement by actually drawing it at 1920x1080,
+ * so by the time this runs we are not guessing — we know the text had to be
+ * shrunk below what anyone can read from a table, and roughly by how much.
+ * That number is handed over, because "make it shorter" produced text that
+ * was shorter and still did not fit.
+ *
+ * This pass is allowed to do the one thing the first pass is forbidden: leave
+ * detail out. It is still forbidden to change a fact or make one up. A parish
+ * notice that is all dates, tuition tiers and instructor names cannot be
+ * compressed by better writing — somebody has to decide what goes to the
+ * bulletin instead, and the rule for that is the obvious one: keep what a
+ * person needs in order to act, move the rest.
+ */
+function tightenSystemPrompt() {
+  return [
+    'You are shortening announcements for a television screen in an Orthodox',
+    'parish hall. Each one below was already rewritten once and STILL does not',
+    'fit — it had to be shrunk smaller than anyone can read from across a room.',
+    '',
+    'Each announcement gives you a CHARACTER BUDGET. Get under it.',
+    '',
+    'Absolute rules:',
+    '1. Never change a date, time, place, price, name or address. Never invent one.',
+    '2. Keep the single action the reader is meant to take, and whoever they',
+    '   contact to take it.',
+    '',
+    'To get under the budget, in this order:',
+    '3. Cut every remaining word that carries no information.',
+    '4. Merge list items and collapse repetition.',
+    '5. Then — and this is allowed here — LEAVE DETAIL OUT. Keep what somebody',
+    '   standing with a coffee needs in order to act on this: what it is, when',
+    '   it starts, and who to ask. Drop the rest and end with a short line',
+    '   pointing them onward, such as "Full details in the bulletin." or',
+    '   "Ask Anca in the office for the full schedule."',
+    '6. Prefer keeping the FIRST date and dropping later ones, keeping a price',
+    '   RANGE over a list of tiers, and naming one contact rather than four.',
+    '',
+    'Markup, same as before: "## Sub-heading", "- Bullet", "**bold**", and one',
+    'contact per line as "Name – address".',
+    '',
+    'Return JSON only: {"items":[{"title":"...","body":"..."}]} with exactly',
+    'one entry per announcement given, in the same order.',
+  ].join('\n');
+}
+
+function formatSystemPrompt() {
+  return [
+    'You lay out announcements for a television screen in an Orthodox parish hall.',
+    'People read it standing, in a glance, from across the room.',
+    '',
+    'For each announcement you are given, return a cleaned-up TITLE and BODY.',
+    '',
+    'The BODY may use exactly this markup and nothing else:',
+    '  ## Sub-heading      a day or a section within the announcement',
+    '  - Bullet            one item in a list',
+    '  **bold**            for emphasis, used sparingly',
+    '  Name – name@example.org   put each contact on its own line, one per line',
+    '',
+    'Rules, in order of importance:',
+    '1. NEVER invent, guess or add a fact. No date, time, place, price, phone',
+    '   number, address or name may be changed, and none may be dropped.',
+    '2. Keep every action the reader is asked to take.',
+    '3. A service schedule becomes "## Day" headings with the services as',
+    '   bullets under each day.',
+    '4. A list of people and email addresses becomes one line per person,',
+    '   "Name, role – address". Never bullet these.',
+    '5. Cut words that carry no information: "we are pleased to announce",',
+    '   "please note that", "as a reminder", "stay tuned", "more details',
+    '   coming soon". Cut "click the link" and "scan the QR code" entirely —',
+    '   the slide already shows a QR code with its own caption.',
+    '6. Aim for a headline and two or three short sentences, or a short list.',
+    '   Under 400 characters of body where the content allows it. If cutting',
+    '   further would lose a fact, stop cutting and leave it longer.',
+    '7. Plain, warm, unfussy language. No markdown headings other than ##.',
+    '   No quotation marks around the whole thing. No commentary about what',
+    '   you did.',
+    '8. Titles are short — under 50 characters, no trailing colon, no ALL CAPS.',
+    '',
+    'Return JSON only: {"items":[{"title":"...","body":"..."}]} with exactly',
+    'one entry per announcement given, in the same order.',
+  ].join('\n');
+}
+
+function formatUserInput(items) {
+  var parts = [];
+  for (var i = 0; i < items.length; i++) {
+    var head = 'ANNOUNCEMENT ' + (i + 1) + '\n';
+    // Only present on the second pass, where the editor has measured the slide
+    // and knows what it actually has room for.
+    if (items[i].maxChars) {
+      head += 'CHARACTER BUDGET: ' + items[i].maxChars + '\n';
+    }
+    parts.push(
+      head +
+      'TITLE: ' + String(items[i].title || '') + '\n' +
+      'BODY:\n' + String(items[i].body || '')
+    );
+  }
+  return parts.join('\n\n---\n\n');
+}
+
+/**
+ * One call to Gemini for the whole batch.
+ *
+ * Batching matters: the free tier is generous on tokens per day and stingy on
+ * requests per minute, so twenty separate calls would be throttled into a
+ * two-minute wait while one call for twenty announcements goes straight
+ * through.
+ */
+function callGemini(items, mode) {
+  var key = geminiKey();
+  if (!key) throw new Error('No GEMINI_API_KEY script property is set.');
+
+  var lastError = null;
+
+  for (var m = 0; m < GEMINI_MODELS.length; m++) {
+    for (var attempt = 0; attempt < GEMINI_ATTEMPTS; attempt++) {
+      if (m > 0 || attempt > 0) Utilities.sleep(GEMINI_BACKOFF_MS);
+
+      var outcome = tryGemini(GEMINI_MODELS[m], key, items, mode);
+      if (outcome.ok) return outcome.items;
+
+      lastError = outcome.error;
+      // A quota refusal is the one failure that trying again cannot fix, and
+      // a different model shares the same allowance — so stop immediately
+      // rather than spending a minute proving it three more times.
+      if (outcome.fatal) throw new Error(lastError);
+      // Anything else — overloaded, a blip, a malformed reply — is worth
+      // another go, and then worth a quieter model.
+    }
+  }
+
+  throw new Error('All ' + GEMINI_MODELS.length + ' models were busy or ' +
+    'unreachable. Last reply — ' + (lastError || 'no answer at all') +
+    '. Nothing was changed; try again in a few minutes.');
+}
+
+/**
+ * One attempt at one model. Returns an outcome rather than throwing, so the
+ * loop above can tell "try again" apart from "stop".
+ */
+function tryGemini(model, key, items, mode) {
+  var body = {
+    model: model,
+    system_instruction: mode === 'tighten' ? tightenSystemPrompt() : formatSystemPrompt(),
+    input: formatUserInput(items),
+    generation_config: { max_output_tokens: 8192 },
+  };
+
+  var res;
+  try {
+    res = UrlFetchApp.fetch(GEMINI_ENDPOINT, {
+      method: 'post',
+      contentType: 'application/json',
+      headers: { 'x-goog-api-key': key },
+      payload: JSON.stringify(body),
+      muteHttpExceptions: true,
+    });
+  } catch (err) {
+    return { ok: false, fatal: false, error: 'Could not reach Gemini: ' + err };
+  }
+
+  var code = res.getResponseCode();
+  var text = res.getContentText();
+
+  if (code === 429) {
+    return {
+      ok: false,
+      fatal: true,
+      error: 'Google’s free allowance has been used up for now — it resets on ' +
+             'its own, usually within the day. Nothing was changed.',
+    };
+  }
+  if (code === 400 && /API key/i.test(text)) {
+    return {
+      ok: false,
+      fatal: true,
+      error: 'Google rejected the API key. Check the GEMINI_API_KEY script ' +
+             'property in this Sheet’s Apps Script project settings.',
+    };
+  }
+  if (code !== 200) {
+    return { ok: false, fatal: false, error: model + ' replied ' + code + ': ' + shortError(text) };
+  }
+
+  try {
+    return { ok: true, items: parseFormatted(extractText(JSON.parse(text)), items) };
+  } catch (err) {
+    // A reply that arrived but could not be used. Worth one more try — models
+    // do occasionally return prose where JSON was asked for.
+    return { ok: false, fatal: false, error: String(err && err.message || err) };
+  }
+}
+
+/** Google's error bodies are JSON; show the sentence, not the envelope. */
+function shortError(text) {
+  try {
+    var parsed = JSON.parse(text);
+    if (parsed && parsed.error && parsed.error.message) return parsed.error.message;
+  } catch (e) { /* not JSON — fall through to the raw text */ }
+  return String(text).slice(0, 200);
+}
+
+/**
+ * Find the model's words in the reply.
+ *
+ * Two shapes are accepted because Google has two APIs in the field: the
+ * Interactions API used above, and the older generateContent one that a lot of
+ * documentation still shows. Reading both costs four lines and means this
+ * keeps working if the endpoint is ever switched back.
+ */
+function extractText(data) {
+  var steps = data && data.steps;
+  if (steps && steps.length) {
+    for (var i = steps.length - 1; i >= 0; i--) {
+      var content = steps[i] && steps[i].content;
+      if (!content) continue;
+      for (var j = 0; j < content.length; j++) {
+        if (content[j] && content[j].type === 'text' && content[j].text) {
+          return content[j].text;
+        }
+      }
+    }
+  }
+  var cand = data && data.candidates && data.candidates[0];
+  var parts = cand && cand.content && cand.content.parts;
+  if (parts && parts.length && parts[0].text) return parts[0].text;
+  throw new Error('Could not find any text in Gemini’s reply.');
+}
+
+/**
+ * The model was asked for JSON and usually obliges, but sometimes wraps it in
+ * a ```json fence. Pull the object out either way, and refuse anything whose
+ * shape doesn't match what was sent — a reply with a different number of
+ * announcements in it would silently reassign bodies to the wrong titles.
+ */
+function parseFormatted(text, items) {
+  var raw = String(text).trim().replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '');
+  var start = raw.indexOf('{');
+  var end = raw.lastIndexOf('}');
+  if (start === -1 || end === -1) throw new Error('Gemini did not return JSON.');
+
+  var parsed = JSON.parse(raw.slice(start, end + 1));
+  var out = parsed && parsed.items;
+  if (!out || !out.length) throw new Error('Gemini returned no announcements.');
+  if (out.length !== items.length) {
+    throw new Error('Gemini returned ' + out.length + ' announcements for ' +
+      items.length + ' sent — ignoring the result rather than mismatching them.');
+  }
+
+  var clean = [];
+  for (var i = 0; i < out.length; i++) {
+    clean.push({
+      title: String(out[i].title || items[i].title || '').trim(),
+      body: String(out[i].body || '').trim(),
+    });
+  }
+  return clean;
+}
+
+/**
+ * Take the job, do the work, leave the answer where the browser can fetch it.
+ * Failures are cached too — an error the editor can read and show beats a
+ * spinner that never stops.
+ */
+function handleFormat(payload) {
+  var jobId = String(payload.jobId || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 60);
+  if (!jobId) return jsonOut({ ok: false, error: 'No job id.' });
+
+  var items = payload.items;
+  if (!items || !items.length) return jsonOut({ ok: false, error: 'Nothing to format.' });
+
+  try {
+    putJob(jobId, { ok: true, done: true, items: callGemini(items, payload.mode) });
+  } catch (err) {
+    putJob(jobId, { ok: false, done: true, error: String(err && err.message || err) });
+  }
+  return jsonOut({ ok: true });
+}
+
+function putJob(jobId, value) {
+  var cache = CacheService.getScriptCache();
+  var json = JSON.stringify(value);
+  var chunks = Math.ceil(json.length / CACHE_CHUNK) || 1;
+  var map = {};
+  for (var i = 0; i < chunks; i++) {
+    map['fmt_' + jobId + '_' + i] = json.substr(i * CACHE_CHUNK, CACHE_CHUNK);
+  }
+  map['fmt_' + jobId + '_n'] = String(chunks);
+  cache.putAll(map, FORMAT_CACHE_SECONDS);
+}
+
+function getJob(jobId) {
+  var cache = CacheService.getScriptCache();
+  var count = cache.get('fmt_' + jobId + '_n');
+  if (!count) return null;
+  var json = '';
+  for (var i = 0; i < +count; i++) {
+    var part = cache.get('fmt_' + jobId + '_' + i);
+    if (part == null) return null;   // expired mid-read; treat as not ready
+    json += part;
+  }
+  try { return JSON.parse(json); } catch (e) { return null; }
+}
+
+/**
+ * GET is how the browser reads anything back, because a <script> tag is not
+ * subject to the cross-origin rule that blocks reading a POST reply.
+ *
+ *   ?action=result&jobId=…&callback=…   collect a finished formatting job
+ *   ?action=ai&callback=…               is an API key configured at all?
+ *   (no action)                         a plain "yes, I'm here" for humans
+ */
+function doGet(e) {
+  var params = (e && e.parameter) || {};
+  var callback = String(params.callback || '').replace(/[^A-Za-z0-9_$.]/g, '').slice(0, 60);
+
+  if (params.action === 'ai') {
+    return maybeJsonp(callback, { ok: true, configured: !!geminiKey() });
+  }
+
+  if (params.action === 'result') {
+    var jobId = String(params.jobId || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 60);
+    var job = getJob(jobId);
+    return maybeJsonp(callback, job || { ok: true, done: false });
+  }
+
   return jsonOut({ ok: true, message: 'St. Elias kiosk publish endpoint is running.' });
+}
+
+function maybeJsonp(callback, obj) {
+  if (!callback) return jsonOut(obj);
+  return ContentService
+    .createTextOutput(callback + '(' + JSON.stringify(obj) + ');')
+    .setMimeType(ContentService.MimeType.JAVASCRIPT);
 }
 
 function ensureHeaders(sheet) {
