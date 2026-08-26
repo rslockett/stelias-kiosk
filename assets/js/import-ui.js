@@ -1466,9 +1466,20 @@
     } catch (err) {
       console.error(err);
       hideWorking();
+      renderAll();
       if (!formatAbandoned) {
-        toast('Could not lay these out automatically (' + err.message +
-              ') — they are still here, just as the newsletter had them.');
+        // The import itself never depended on this. Every announcement is in
+        // the list, split out of the newsletter, with its schedule and its
+        // contacts already laid out by the importer's own rules — none of
+        // which needs Google, a key or an allowance. What has been lost is
+        // the shortening, so say that, and say where the tools are.
+        const quota = /allowance/i.test(err.message);
+        toast(quota
+          ? 'Google’s free allowance is used up for today — it resets at midnight ' +
+            'Pacific. Everything imported fine and is ready to edit by hand; use the ' +
+            'B / Heading / List buttons and watch the Slide space bar.'
+          : 'Could not shorten these automatically (' + err.message + '). They are ' +
+            'all here and laid out — edit them by hand and watch the Slide space bar.');
       }
     }
   }
