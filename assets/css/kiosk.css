@@ -634,15 +634,28 @@ body::after {
    check. Sits opposite the dots, quiet enough to ignore from a table and
    legible enough to read deliberately from a couple of feet — which is the
    only way anybody will ever use it. */
+/* Sized and weighted to actually be read.
+ *
+ * The first attempt at this was 1.35vh at half opacity, which is under 15px
+ * on a 1080p screen in pale grey on cream. On a laptop at arm's length that
+ * looks tastefully quiet. On the television it is not there at all — the same
+ * effect the note about the corner ornaments in the README describes, where a
+ * bright backlight and a panel that throws away fine tonal detail flatten
+ * anything low-contrast into the background.
+ *
+ * It exists to be walked up to and read, so it has to survive that. Bigger,
+ * most of the way to full strength, and in a face that holds up small. It is
+ * still the quietest thing on the screen and still sits below the slide. */
 .freshness {
   grid-column: 1;
   justify-self: start;
   min-width: 0;
   font-family: 'Montserrat', system-ui, sans-serif;
-  font-size: 1.35vh;
-  letter-spacing: 0.055em;
+  font-size: 1.9vh;
+  font-weight: 500;
+  letter-spacing: 0.045em;
   color: var(--ink-soft);
-  opacity: 0.5;
+  opacity: 0.85;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -658,10 +671,11 @@ body::after {
   align-items: center;
   gap: 0.8vh;
   font-family: 'Montserrat', system-ui, sans-serif;
-  font-size: 1.35vh;
-  letter-spacing: 0.055em;
+  font-size: 1.9vh;
+  font-weight: 500;
+  letter-spacing: 0.045em;
   color: var(--ink-soft);
-  opacity: 0.6;
+  opacity: 0.85;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
