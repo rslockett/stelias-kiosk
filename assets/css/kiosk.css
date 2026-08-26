@@ -634,28 +634,27 @@ body::after {
    check. Sits opposite the dots, quiet enough to ignore from a table and
    legible enough to read deliberately from a couple of feet — which is the
    only way anybody will ever use it. */
-/* Sized and weighted to actually be read.
+/* Deliberately faint.
  *
- * The first attempt at this was 1.35vh at half opacity, which is under 15px
- * on a 1080p screen in pale grey on cream. On a laptop at arm's length that
- * looks tastefully quiet. On the television it is not there at all — the same
- * effect the note about the corner ornaments in the README describes, where a
- * bright backlight and a panel that throws away fine tonal detail flatten
- * anything low-contrast into the background.
+ * This is a maintenance note on a screen whose job is announcements. Nobody
+ * sitting with a coffee should ever notice it; the one person who wants it
+ * is standing in front of the television having just published, and they
+ * know where to look. Anything loud enough to read from a chair is louder
+ * than it deserves to be.
  *
- * It exists to be walked up to and read, so it has to survive that. Bigger,
- * most of the way to full strength, and in a face that holds up small. It is
- * still the quietest thing on the screen and still sits below the slide. */
+ * It was briefly set much larger, on the theory that it was too faint to see
+ * on a television. That was a misdiagnosis — the screen it could not be seen
+ * on was running an old cached copy that had no such element in it at all. */
 .freshness {
   grid-column: 1;
   justify-self: start;
   min-width: 0;
   font-family: 'Montserrat', system-ui, sans-serif;
-  font-size: 1.9vh;
-  font-weight: 500;
-  letter-spacing: 0.045em;
+  font-size: 1.2vh;
+  font-weight: 400;
+  letter-spacing: 0.05em;
   color: var(--ink-soft);
-  opacity: 0.85;
+  opacity: 0.38;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -671,11 +670,14 @@ body::after {
   align-items: center;
   gap: 0.8vh;
   font-family: 'Montserrat', system-ui, sans-serif;
-  font-size: 1.9vh;
-  font-weight: 500;
-  letter-spacing: 0.045em;
+  /* A little more present than the timestamp opposite it, and no more. This
+     one only appears when something is actually wrong, and its gold dot does
+     most of the work of catching an eye that happens to pass. */
+  font-size: 1.35vh;
+  font-weight: 400;
+  letter-spacing: 0.05em;
   color: var(--ink-soft);
-  opacity: 0.85;
+  opacity: 0.55;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
