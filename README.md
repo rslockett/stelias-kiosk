@@ -555,7 +555,47 @@ Reboot to confirm it comes up on its own.
 - If the hall wifi drops, it keeps showing the last announcements it saw rather
   than an error page. A small note appears in the corner.
 - Plug in a keyboard to control it: **←** and **→** to move, **space** to hold a
-  slide, **R** to re-check the Sheet now.
+  slide, **R** to re-check the Sheet now, **U** to update to the newest version
+  of the kiosk itself.
+
+### It updates itself
+
+Two different things go stale on a screen left running for weeks, and they are
+fixed in two different ways.
+
+**The words** come from the Sheet, which is re-read every couple of minutes.
+That has always worked.
+
+**The program** — the code that draws the slides — used to be whatever the
+browser downloaded the day the Pi was last restarted. A fix pushed on Tuesday
+would not reach the hall until somebody power-cycled the machine.
+
+Now the screen checks every ten minutes for a newer version and, if there is
+one, reloads itself **between slides**. Nothing to press, nobody in the hall,
+and no walking over with a keyboard. Change `updateCheckMinutes` in
+[`config.js`](assets/js/config.js) to adjust it, or set it to `null` to turn it
+off.
+
+If a reload doesn't actually land on the new version, it gives up after one
+attempt and says so in the browser console rather than reloading forever — a
+screen that restarts every fourteen seconds is far worse than one running last
+week's code.
+
+### Releasing a change
+
+Run this before pushing, and commit what it changes:
+
+```bash
+./stamp-version.sh && git add -A && git commit -m "..." && git push
+```
+
+It stamps every stylesheet and script with a release number and writes
+`version.json`, which is what the television compares itself against.
+
+Skipping it doesn't break anything, but the screen won't notice the change,
+and browsers may serve a mix of old and new files for ten minutes — which is
+how `##` and `**` once ended up visible on the preview instead of being
+rendered.
 
 ---
 
@@ -652,6 +692,9 @@ assets/
   js/qrcode.js      QR code generator (Kazuhiko Arase, MIT)
   fonts/            EB Garamond + Montserrat
   img/              parish monogram and cross
+version.json        the published release number; the TV watches this and
+                    reloads itself when it changes
+stamp-version.sh    run before pushing — stamps the release and writes the above
 pi/setup-pi.sh      one-time Raspberry Pi setup
 sheet/Code.gs       the Apps Script that receives "Make it live", sign-ups,
                     and the daily liturgical fetch

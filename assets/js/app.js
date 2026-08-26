@@ -87,6 +87,12 @@
 
   function show(i) {
     if (!deck.length) return;
+
+    // A slide boundary is the only moment the screen is allowed to reload onto
+    // a new version of itself — see the note above applyUpdate(). Checked here
+    // rather than on a timer so it can never happen mid-sentence.
+    applyUpdateIfDue();
+
     index = ((i % deck.length) + deck.length) % deck.length;
     const slide = deck[index];
 
@@ -235,6 +241,11 @@
       global.coffeeSignupSource && global.coffeeSignupSource.refresh();
       global.breadSignupSource && global.breadSignupSource.refresh();
       global.weatherSource && global.weatherSource.refresh();
+    } else if (e.key === 'u') {
+      // Update to the newest version of the kiosk itself, now, without
+      // waiting for the next check or the next slide. "r" fetches the words
+      // again; this one fetches the program.
+      applyUpdate();
     }
   }
 
@@ -248,6 +259,109 @@
         location.reload();
       }
     }, 60 * 1000);
+  }
+
+  /* -------------------------------------------------------------- updating -- */
+
+  /*
+   * Picking up a new version of the kiosk itself.
+   *
+   * The Sheet polling above keeps the WORDS current. This keeps the PROGRAM
+   * current, which is a different problem and used to need somebody to walk
+   * into the hall with a keyboard: a television left running for weeks holds
+   * on to the JavaScript it started with, so a fix pushed on Tuesday would not
+   * reach the screen until the machine happened to restart.
+   *
+   * version.json is written by stamp-version.sh on every release. The page
+   * knows which version it is running because that same script stamps it into
+   * a meta tag. When the two disagree, there is new code on the server.
+   *
+   * The reload waits for a slide boundary. Everything else about this screen
+   * changes between slides rather than under somebody's eyes mid-sentence, and
+   * a page reload is the most abrupt change there is.
+   */
+
+  let runningVersion = '';
+  let updatePending = false;
+  let pendingVersion = '';
+
+  // The version we last reloaded in order to reach. If we come back up and the
+  // server is STILL advertising it while we are still not running it, then
+  // reloading did not work and reloading again will not work either — the
+  // stamps have got out of step, or something is being served from a cache we
+  // cannot defeat. Giving up quietly is the only safe answer: a television in
+  // a church hall that reloads every fourteen seconds forever is far worse
+  // than one running last week's code.
+  const TRIED_KEY = 'stelias.kiosk.updateTried';
+
+  function triedVersion() {
+    try { return sessionStorage.getItem(TRIED_KEY) || ''; } catch (e) { return ''; }
+  }
+
+  function rememberTried(v) {
+    try { sessionStorage.setItem(TRIED_KEY, v); } catch (e) { /* private mode */ }
+  }
+
+  function readRunningVersion() {
+    const meta = document.querySelector('meta[name="kiosk-version"]');
+    return meta ? String(meta.content || '').trim() : '';
+  }
+
+  async function checkForUpdate() {
+    if (updatePending || !runningVersion) return;
+    try {
+      const res = await fetch('version.json?_ts=' + Date.now(), { cache: 'no-store' });
+      if (!res.ok) return;
+      const data = await res.json();
+      const latest = String(data && data.version || '').trim();
+      if (!latest || latest === runningVersion) return;
+
+      if (latest === triedVersion()) {
+        console.warn('[kiosk] already reloaded once for version ' + latest +
+          ' and still running ' + runningVersion + ' — not trying again. ' +
+          'Check that stamp-version.sh ran before the last push.');
+        return;
+      }
+
+      console.info('[kiosk] new version ' + latest + ' (running ' + runningVersion + ')');
+      pendingVersion = latest;
+      updatePending = true;
+    } catch (e) {
+      // Offline, or the file isn't there. Neither is worth saying anything
+      // about — the screen carries on showing announcements either way.
+    }
+  }
+
+  /**
+   * Reload onto the new version.
+   *
+   * The address carries the version so the browser has to go and fetch the
+   * document rather than hand back the copy it already has — a plain reload
+   * can be served entirely from cache, which would land us back on exactly
+   * the code we are trying to leave.
+   */
+  function applyUpdate() {
+    const base = location.href.split('?')[0].split('#')[0];
+    location.replace(base + '?v=' + Date.now());
+  }
+
+  /** Called at every slide change; the only moment a reload is allowed. */
+  function applyUpdateIfDue() {
+    if (!updatePending) return;
+    // Recorded before leaving, so that if this reload does not actually get us
+    // onto the new version, the check above refuses to try it a second time.
+    rememberTried(pendingVersion);
+    applyUpdate();
+  }
+
+  function scheduleUpdateChecks() {
+    runningVersion = readRunningVersion();
+    if (!runningVersion) return;                 // unstamped copy — nothing to compare
+    const mins = CFG.updateCheckMinutes;
+    if (mins === null || mins === undefined || mins <= 0) return;
+
+    checkForUpdate();
+    setInterval(checkForUpdate, Math.max(1, mins) * 60 * 1000);
   }
 
   /* ----------------------------------------------------------------- boot -- */
@@ -268,6 +382,7 @@
     tickClock();
     setInterval(tickClock, 10 * 1000);
     scheduleDailyReload();
+    scheduleUpdateChecks();
 
     global.weatherSource = global.Weather.createWeatherSource().on(onWeather).start();
 

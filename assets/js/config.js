@@ -152,6 +152,20 @@ window.KIOSK_CONFIG = {
   // browser tidy on a machine that never gets turned off. Use null to disable.
   dailyReloadHour: 3,
 
+  // How often the TV checks whether a NEW VERSION OF THE KIOSK ITSELF has been
+  // published, in minutes.
+  //
+  // This is separate from pollSeconds above, which keeps the announcements
+  // current. This one keeps the program current: without it, a screen that has
+  // been running for three weeks is still running the code it started with,
+  // and a fix doesn't reach the hall until somebody restarts the Pi.
+  //
+  // When it finds a new version it reloads between slides, never mid-slide.
+  // The check is one small file and costs nothing; ten minutes is unhurried.
+  // Set to null to turn it off and update only by restarting the Pi (or by
+  // pressing "u" on a keyboard plugged into it).
+  updateCheckMinutes: 10,
+
 
   /* --------------------------------------------------------------------------
      6. WHAT THE SCREEN SAYS

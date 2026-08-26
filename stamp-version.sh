@@ -45,6 +45,16 @@ for f in index.html import.html preview.html signup.html; do
     "$f"
 done
 
+# The television reads both of these and reloads itself when they disagree.
+# index.html carries the version it is running; version.json carries the
+# version that has been published. See "updating" in assets/js/app.js.
+sed -i '' -E \
+  -e 's|(<meta name="kiosk-version" content=")[^"]*(">)|\1'"$VERSION"'\2|' \
+  index.html
+
+printf '{ "version": "%s" }\n' "$VERSION" > version.json
+
 echo "Stamped assets with ?v=$VERSION"
+echo "Wrote version.json and index.html's kiosk-version meta"
 grep -h -oE '="assets/[^"]*"' index.html import.html preview.html signup.html \
   | sort -u | sed 's/^="/  /; s/"$//'
