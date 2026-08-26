@@ -138,6 +138,9 @@
       setTimeout(() => outgoing.remove(), CFG.transitionMs + 100);
     }
     currentEl = el;
+    // The hall now has something to look at, which is the precondition for
+    // this file ever being allowed to reload the page. See "updating" below.
+    renderedOnce = true;
 
     renderDots();
     startProgress(dwellMs(slide));
@@ -351,21 +354,50 @@
   let updatePending = false;
   let pendingVersion = '';
 
-  // The version we last reloaded in order to reach. If we come back up and the
-  // server is STILL advertising it while we are still not running it, then
-  // reloading did not work and reloading again will not work either — the
-  // stamps have got out of step, or something is being served from a cache we
-  // cannot defeat. Giving up quietly is the only safe answer: a television in
-  // a church hall that reloads every fourteen seconds forever is far worse
-  // than one running last week's code.
-  const TRIED_KEY = 'stelias.kiosk.updateTried';
+  /*
+   * THE RULE THIS CODE EXISTS TO OBEY
+   *
+   * An announcement screen that is showing announcements must never be turned
+   * into a blank one by this file. Updating is a convenience. Showing the
+   * parish its notices is the entire job, and no amount of convenience is
+   * worth a dark television in the hall.
+   *
+   * The first version of this broke that rule. The reload fired from the top
+   * of show(), which is reached before the first slide is ever drawn — so a
+   * screen that wanted an update reloaded, wanted it again, reloaded again,
+   * and sat there showing nothing but the masthead. The header is static
+   * markup and paints immediately, which made it look like a hung page rather
+   * than a loop. It did exactly this on the Pi in the hall while working
+   * perfectly on a laptop, because the laptop happened to already have the
+   * version it was reaching for.
+   *
+   * Four rules now, and any one of them alone is enough to prevent that:
+   *
+   *   1. Nothing reloads until slides have actually been on screen. A blank
+   *      kiosk therefore cannot be caused by this code — there is always
+   *      something to go back to.
+   *   2. The first check waits until the screen has been up a few minutes.
+   *   3. A version we already reloaded for is never chased twice, and that is
+   *      remembered in localStorage, which survives a session being wiped.
+   *   4. At most one update reload in any half hour, however much changes.
+   */
 
-  function triedVersion() {
-    try { return sessionStorage.getItem(TRIED_KEY) || ''; } catch (e) { return ''; }
+  const TRIED_KEY = 'stelias.kiosk.updateTried';
+  const LAST_RELOAD_KEY = 'stelias.kiosk.updateReloadedAt';
+
+  // Rule 2: let the screen settle and get slides up before thinking about it.
+  const SETTLE_MS = 3 * 60 * 1000;
+  // Rule 4: a ceiling on how often this can ever reload, whatever happens.
+  const MIN_BETWEEN_RELOADS_MS = 30 * 60 * 1000;
+
+  let renderedOnce = false;      // rule 1 — set the first time a slide is drawn
+
+  function remembered(key) {
+    try { return localStorage.getItem(key) || ''; } catch (e) { return ''; }
   }
 
-  function rememberTried(v) {
-    try { sessionStorage.setItem(TRIED_KEY, v); } catch (e) { /* private mode */ }
+  function remember(key, value) {
+    try { localStorage.setItem(key, value); } catch (e) { /* storage disabled */ }
   }
 
   function readRunningVersion() {
@@ -375,6 +407,16 @@
 
   async function checkForUpdate() {
     if (updatePending || !runningVersion) return;
+
+    // Rule 1. Until the hall has seen a slide, there is nothing this can
+    // safely do — reloading now risks replacing a screen that is still
+    // starting up with one that starts up again.
+    if (!renderedOnce) return;
+
+    // Rule 4.
+    const lastReload = parseInt(remembered(LAST_RELOAD_KEY), 10);
+    if (lastReload && Date.now() - lastReload < MIN_BETWEEN_RELOADS_MS) return;
+
     try {
       const res = await fetch('version.json?_ts=' + Date.now(), { cache: 'no-store' });
       if (!res.ok) return;
@@ -382,7 +424,8 @@
       const latest = String(data && data.version || '').trim();
       if (!latest || latest === runningVersion) return;
 
-      if (latest === triedVersion()) {
+      // Rule 3.
+      if (latest === remembered(TRIED_KEY)) {
         console.warn('[kiosk] already reloaded once for version ' + latest +
           ' and still running ' + runningVersion + ' — not trying again. ' +
           'Check that stamp-version.sh ran before the last push.');
@@ -407,16 +450,17 @@
    * the code we are trying to leave.
    */
   function applyUpdate() {
+    remember(LAST_RELOAD_KEY, String(Date.now()));
     const base = location.href.split('?')[0].split('#')[0];
     location.replace(base + '?v=' + Date.now());
   }
 
   /** Called at every slide change; the only moment a reload is allowed. */
   function applyUpdateIfDue() {
-    if (!updatePending) return;
+    if (!updatePending || !renderedOnce) return;
     // Recorded before leaving, so that if this reload does not actually get us
     // onto the new version, the check above refuses to try it a second time.
-    rememberTried(pendingVersion);
+    remember(TRIED_KEY, pendingVersion);
     applyUpdate();
   }
 
@@ -426,8 +470,13 @@
     const mins = CFG.updateCheckMinutes;
     if (mins === null || mins === undefined || mins <= 0) return;
 
-    checkForUpdate();
-    setInterval(checkForUpdate, Math.max(1, mins) * 60 * 1000);
+    // No check at boot. The screen gets several minutes to fetch the Sheet,
+    // draw a slide and be a working television before this is allowed to have
+    // an opinion about reloading it.
+    setTimeout(() => {
+      checkForUpdate();
+      setInterval(checkForUpdate, Math.max(1, mins) * 60 * 1000);
+    }, SETTLE_MS);
   }
 
   /* ----------------------------------------------------------------- boot -- */
