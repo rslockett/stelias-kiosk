@@ -816,6 +816,38 @@
 
   /* ============================================================== status == */
 
+  /**
+   * What can honestly be said about the screen in the hall.
+   *
+   * "Live" here means the published Sheet has been re-read and genuinely
+   * contains these announcements. It does NOT mean the television has them:
+   * the Pi fetches that same Sheet on its own clock, and nothing on this page
+   * ever hears back from it. A Pi that is unplugged, or a hall with its wifi
+   * down, looks from here exactly like one that is working perfectly.
+   *
+   * This used to read "Everything here is on the TV", which is a claim this
+   * page is in no position to make. So it says what it knows — published —
+   * and then says what follows from that, as an expectation with a clock on
+   * it rather than as a fact.
+   */
+  function hallSentence() {
+    if (!liveStamp || !liveStamp.at) return '';
+    const at = new Date(liveStamp.at).getTime();
+    if (isNaN(at)) return '';
+
+    // The screen re-reads the Sheet on this interval; give it one full cycle
+    // plus a little, since the publish and the poll are not in step.
+    const cycleMs = Math.max(15, CFG.pollSeconds || 120) * 1000;
+    const due = at + cycleMs + 30000;
+
+    if (Date.now() < due) {
+      const mins = Math.max(1, Math.ceil((due - Date.now()) / 60000));
+      return 'The hall screen picks this up within about ' +
+        (mins === 1 ? 'a minute' : mins + ' minutes') + '.';
+    }
+    return 'The hall screen should be showing this, if it is switched on.';
+  }
+
   function renderStatus() {
     let state, pill, line, sub = '';
 
@@ -844,10 +876,13 @@
     } else if (!isDirty()) {
       state = 'live';
       pill = 'Live';
-      line = 'Everything here is on the TV.';
-      sub = liveStamp && liveStamp.at
-        ? 'Last published' + (liveStamp.by ? ' by ' + liveStamp.by : '') + ' ' + timeAgo(liveStamp.at) + '.'
-        : '';
+      line = 'Everything here is published.';
+      sub = [
+        liveStamp && liveStamp.at
+          ? 'Last published' + (liveStamp.by ? ' by ' + liveStamp.by : '') + ' ' + timeAgo(liveStamp.at) + '.'
+          : '',
+        hallSentence(),
+      ].filter(Boolean).join(' ');
     } else {
       const c = changeSummary();
       state = 'draft';
