@@ -1597,19 +1597,28 @@
     landingEl.hidden = true;
   });
 
+  /**
+   * Read whatever landed here. Every path out of this function says something:
+   * an import that quietly does nothing is the worst possible answer, because
+   * the editor has no way to tell a broken page from a wrong file.
+   */
   function handleFile(file) {
-    if (!file) return;
+    if (!file) { toast('Nothing came through — try "choose a file" instead'); return; }
     const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        offerImport(global.Importer.splitEml(String(reader.result)), file.name);
-      } catch (err) {
-        console.error(err);
-        toast('Could not read that file — is it a .eml?');
-      }
-    };
+    reader.onload = () => handleEmailText(String(reader.result), file.name);
     reader.onerror = () => toast('Could not read that file');
     reader.readAsText(file);
+  }
+
+  /** Raw email text in — from a file, or dragged straight out of a mail app. */
+  function handleEmailText(text, label) {
+    if (!text.trim()) { toast('That file is empty'); return; }
+    try {
+      offerImport(global.Importer.splitEml(text), label);
+    } catch (err) {
+      console.error(err);
+      toast('Could not read ' + label + ' — is it the downloaded .eml?');
+    }
   }
 
   fileEl.addEventListener('change', e => handleFile(e.target.files[0]));
@@ -1619,7 +1628,18 @@
     dropEl.addEventListener(ev, e => { e.preventDefault(); dropEl.classList.add('is-over'); }));
   ['dragleave', 'drop'].forEach(ev =>
     dropEl.addEventListener(ev, e => { e.preventDefault(); dropEl.classList.remove('is-over'); }));
-  dropEl.addEventListener('drop', e => handleFile(e.dataTransfer.files && e.dataTransfer.files[0]));
+
+  // Dragging the message itself out of Mail or a Gmail tab hands us text, not a
+  // file — dataTransfer.files is empty and the old handler bailed without a
+  // word. Take the text when that is all we are given.
+  dropEl.addEventListener('drop', e => {
+    const dt = e.dataTransfer;
+    const file = dt && dt.files && dt.files[0];
+    if (file) { handleFile(file); return; }
+    const text = dt && dt.getData && dt.getData('text/plain');
+    if (text && text.trim()) { handleEmailText(text, 'the dropped message'); return; }
+    toast('That did not come through as a file — use "choose a file" instead');
+  });
 
   $('split-btn').addEventListener('click', () => {
     const raw = pasteEl.value.trim();

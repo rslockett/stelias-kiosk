@@ -314,6 +314,18 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .drop__title { margin: 0 0 0.4rem; font-size: 1.15rem; color: var(--oxblood); }
 .drop__or { margin: 0; color: var(--ink-soft); font-size: 0.94rem; }
 
+/* The file input is driven by the "choose a file" button, so it never shows.
+   Hidden by position rather than display:none — Safari has a long history of
+   ignoring a programmatic click on an undisplayed input, and the symptom is
+   the picker simply never opening. */
+.drop__input {
+  position: absolute;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0; border: 0;
+  clip-path: inset(50%);
+  overflow: hidden;
+}
+
 .landing { border-left: 4px solid var(--gold-deep); }
 .landing__text { margin: 0 0 0.3rem; }
 
