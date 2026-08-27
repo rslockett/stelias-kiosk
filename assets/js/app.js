@@ -37,8 +37,27 @@
   let coffeeSlide = null;
   let breadSlide = null;
 
+  /**
+   * The welcome slide, built once from config.js. Unlike everything else on
+   * the screen it has no source to poll — it says the same thing every week,
+   * which is the point of it. A visitor sees it whichever Sunday they walk in.
+   */
+  const welcomeSlide = (function () {
+    const w = CFG.welcome || {};
+    const url = String(w.formUrl || '').trim();
+    if (!url) return null;
+    return {
+      title: w.title || 'Welcome',
+      body: w.body || '',
+      link: url,
+      linkLabel: w.qrLabel || CFG.defaultQrLabel,
+      image: String(w.image || '').trim(),
+    };
+  })();
+
   function mergedDeck() {
     return (liturgicalSlide ? [liturgicalSlide] : [])
+      .concat(welcomeSlide ? [welcomeSlide] : [])
       .concat(announcementSlides, coffeeSlide ? [coffeeSlide] : [], breadSlide ? [breadSlide] : []);
   }
 

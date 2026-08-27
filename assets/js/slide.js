@@ -364,7 +364,34 @@
     const bodyEl = el.querySelector('.slide__body');
     if (bodyEl) bodyEl.dataset.source = String(slide.body == null ? '' : slide.body);
 
+    if (hasImg) dropImageIfBroken(el, hasQr ? 'qr' : 'text');
+
     return el;
+  }
+
+  /**
+   * An Image address that 404s — a photo taken down, a link typed wrong, a
+   * file not added yet — otherwise leaves a broken-image box sitting on the
+   * wall of the hall for fourteen seconds. Nobody in the building can fix
+   * that while it is happening, so the slide gives the picture up and lays
+   * itself out as the words-and-QR slide it would have been without one.
+   */
+  function dropImageIfBroken(el, fallbackLayout) {
+    const wrap = el.querySelector('.slide__image');
+    const img = wrap && wrap.querySelector('img');
+    if (!img) return;
+
+    const drop = () => {
+      if (!wrap.parentNode) return;
+      console.warn('[kiosk] image would not load, showing the slide without it:', img.src);
+      wrap.remove();
+      el.className = el.className.replace(/slide--image/, 'slide--' + fallbackLayout);
+    };
+
+    // complete && naturalWidth === 0 means it has already failed — a cached
+    // failure fires no error event, so the listener alone would never run.
+    if (img.complete && !img.naturalWidth) drop();
+    else img.addEventListener('error', drop, { once: true });
   }
 
   /* ------------------------------------------------------------ signup -- */

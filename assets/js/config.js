@@ -102,29 +102,65 @@ window.KIOSK_CONFIG = {
      A Sunday with no row for it is simply open.
 
      signupUrl is what people scan on the kiosk and land on: signup.html on
-     this same site, with ?type=coffee or ?type=bread. If you don't want the
-     GitHub Pages address showing up in print or on the QR code, put a short
-     redirect link here instead (e.g. from tinyurl.com) that points at it —
-     the kiosk only ever displays whatever URL is entered here.
+     this same site, with ?type=coffee or ?type=bread. If you would rather not
+     have the GitHub Pages address on the QR code, point a domain you control
+     at it — the kiosk displays whatever URL is entered here.
 
      image is optional — a photo shown on the TV slide, same as an
      announcement's Image column. Leave it blank for a words-and-QR-only
      slide.
 
      Leave a pair blank to leave that sign-up off the TV entirely.
+
+     Put the real address here, never a tinyurl. A QR code has no trouble with
+     a long address — it just draws a slightly denser square — and a shortener
+     buys nothing while costing the visitor an advertising page and a countdown
+     between scanning and arriving. Nobody standing in the hall with a paper
+     cup waits that out twice.
   -------------------------------------------------------------------------- */
 
   coffeeHour: {
     csvUrl: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRKHWTgqqt76qjc_U3VU9xdNLUJpDKjnnl2o_Hm7g85vC_Zy8-Hhiir28naTV25GW98_PWvjHF26hj5/pub?gid=834317076&single=true&output=csv',
-    signupUrl: 'https://tinyurl.com/28u86tec',
+    signupUrl: 'https://rslockett.github.io/stelias-kiosk/signup.html?type=coffee',
     image: '',
   },
 
   holyBread: {
     csvUrl: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRKHWTgqqt76qjc_U3VU9xdNLUJpDKjnnl2o_Hm7g85vC_Zy8-Hhiir28naTV25GW98_PWvjHF26hj5/pub?gid=637926506&single=true&output=csv',
-    signupUrl: 'https://tinyurl.com/2awroxfv',
+    signupUrl: 'https://rslockett.github.io/stelias-kiosk/signup.html?type=bread',
     image: '',
   },
+
+  /* --------------------------------------------------------------------------
+     WELCOME  — the slide for whoever is standing in the hall for the first time
+
+     Coffee hour is where a visitor either meets somebody or quietly leaves.
+     This slide is the parish saying hello when nobody happens to be free: the
+     icon, a short greeting, and a code they can scan to leave their name.
+
+     formUrl is the parish's welcome form. Put the real address here, not a
+     shortened one — see the note above the sign-ups.
+
+     image is the icon shown beside the greeting. Leave it blank and the slide
+     still works, as words and a QR code.
+
+     Leave formUrl blank to leave the welcome slide off the TV entirely.
+
+     It sits near the front of the rotation, after the day's saints and before
+     the announcements, so it comes round often enough that somebody who has
+     just walked in will see it without waiting through the whole week's news.
+  -------------------------------------------------------------------------- */
+
+  welcome: {
+    title: 'Welcome',
+    body: 'If this is your first time with us, we are glad you are here.\n\n' +
+      'Please stay for coffee, and introduce yourself to Fr. Elias or to ' +
+      'anyone wearing a name tag.',
+    image: 'assets/img/welcome-prophet-elias.jpg',
+    formUrl: 'https://steliasaustin.breezechms.com/form/welcome',
+    qrLabel: 'Scan to say hello',
+  },
+
 
   // How many upcoming Sundays to show, both on the TV and on signup.html.
   // (The kiosk only ever shows the first 6 of these, however high this is

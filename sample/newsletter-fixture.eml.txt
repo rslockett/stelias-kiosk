@@ -64,6 +64,14 @@ mple.org</a></div>
 </tbody></table>
 <div>We would love to have this board filled, so please sign up in the hall.</div>
 
+<div><strong>Parish Retreat</strong></div>
+<div>Sign up for the retreat at <a href=3D"https://tinyurl.com/abc123">example.org/re=
+treat</a>.</div>
+
+<div><strong>Choir Practice</strong></div>
+<div>Practice moves to Thursdays. Details here: <a href=3D"https://tinyurl.com/xyz789=
+">tinyurl.com/xyz789</a></div>
+
 <div><strong>Online Donations</strong></div>
 <div>Donate through our website (<a href=3D"https://example.org/give">https://example=
 .org/give</a>) or text to give. You can set up recurring gifts this way.</div>

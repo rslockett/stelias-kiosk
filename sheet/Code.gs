@@ -603,12 +603,109 @@ function getJob(jobId) {
   try { return JSON.parse(json); } catch (e) { return null; }
 }
 
+/* ============================================================== unwrapping ==
+ *
+ * The newsletter goes out through Breeze, which rewrites every link into
+ * links.breezechms.com/ls/click?upn=… — routinely over a thousand characters.
+ * A QR code carrying that is a dense grey mush nobody can scan from a table,
+ * which is why the editor used to run those addresses through TinyURL. That
+ * traded one problem for a worse one: TinyURL now shows an advertising page
+ * with a countdown, so every scan in the hall landed on an advert.
+ *
+ * The address behind the wrapper is short and works perfectly. Only the
+ * wrapper knows it, and a browser cannot ask — the cross-origin rule stops
+ * it reading the redirect. This script can, and this is the only reason it
+ * is here.
+ *
+ * The host list is a deliberate allow-list. Without it this endpoint would
+ * fetch any address anybody handed it, from inside the parish's Google
+ * account, which is not something to leave lying open on the internet.
+ * ========================================================================== */
+
+var UNWRAPPABLE_HOSTS = [
+  'links.breezechms.com',
+  'tinyurl.com',
+  'bit.ly',
+  'ow.ly',
+  'buff.ly',
+  'is.gd',
+  'rebrand.ly',
+  'cutt.ly',
+  'lnkd.in',
+  'mailchi.mp',
+  'list-manage.com',
+  'sendgrid.net',
+  'awstrack.me',
+  'mandrillapp.com',
+  't.co',
+];
+
+function hostOf_(url) {
+  var m = String(url || '').match(/^https?:\/\/([^\/?#]+)/i);
+  return m ? m[1].toLowerCase().replace(/^www\./, '').split(':')[0] : '';
+}
+
+function isUnwrappable_(url) {
+  var host = hostOf_(url);
+  if (!host) return false;
+  for (var i = 0; i < UNWRAPPABLE_HOSTS.length; i++) {
+    var h = UNWRAPPABLE_HOSTS[i];
+    if (host === h || host.slice(-(h.length + 1)) === '.' + h) return true;
+  }
+  return false;
+}
+
+/**
+ * Follow a wrapper to the page it actually leads to.
+ *
+ * Redirects are followed one at a time rather than by letting UrlFetchApp
+ * chase them, because a shortener pointing at a Breeze wrapper pointing at
+ * the real page is two hops and we want to stop the moment we are somewhere
+ * ordinary. Everything is best-effort: if anything at all goes wrong the
+ * original address comes back unchanged, which is exactly as good as not
+ * having asked.
+ */
+function unwrapUrl_(url) {
+  var current = String(url);
+  var seen = {};
+
+  for (var hop = 0; hop < 5; hop++) {
+    if (!isUnwrappable_(current) || seen[current]) break;
+    seen[current] = true;
+
+    var res;
+    try {
+      res = UrlFetchApp.fetch(current, {
+        method: 'get',
+        followRedirects: false,
+        muteHttpExceptions: true,
+      });
+    } catch (err) {
+      break;
+    }
+
+    var code = res.getResponseCode();
+    if (code < 300 || code > 399) break;
+
+    var headers = res.getAllHeaders();
+    var next = headers.Location || headers.location;
+    if (!next) break;
+    next = String(next);
+    if (!/^https?:\/\//i.test(next)) break;   // relative hop: not worth chasing
+
+    current = next;
+  }
+
+  return current;
+}
+
 /**
  * GET is how the browser reads anything back, because a <script> tag is not
  * subject to the cross-origin rule that blocks reading a POST reply.
  *
  *   ?action=result&jobId=…&callback=…   collect a finished formatting job
  *   ?action=ai&callback=…               is an API key configured at all?
+ *   ?action=unwrap&url=…&callback=…     what does this tracking link lead to?
  *   (no action)                         a plain "yes, I'm here" for humans
  */
 function doGet(e) {
@@ -617,6 +714,21 @@ function doGet(e) {
 
   if (params.action === 'ai') {
     return maybeJsonp(callback, { ok: true, configured: !!geminiKey() });
+  }
+
+  if (params.action === 'unwrap') {
+    var wrapped = String(params.url || '');
+    if (!isUnwrappable_(wrapped)) {
+      // Not a wrapper we know, so there is nothing to unwrap and no reason to
+      // go fetching it. Hand it straight back.
+      return maybeJsonp(callback, { ok: true, url: wrapped, unwrapped: false });
+    }
+    var real = unwrapUrl_(wrapped);
+    return maybeJsonp(callback, {
+      ok: true,
+      url: real,
+      unwrapped: real !== wrapped,
+    });
   }
 
   if (params.action === 'result') {

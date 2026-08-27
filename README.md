@@ -295,6 +295,32 @@ directly into the spreadsheet works exactly the same.
 
 ## Two things that decide whether this works
 
+### Never use a link shortener
+
+Put the real address on the slide. A QR code does not care how long it is — it
+just draws a slightly denser square — and every shortener now shows an
+advertising page with a countdown before it forwards. Somebody standing in the
+hall scans the parish's screen and gets an advert and a wait. That reads as the
+screen being broken, and they are not wrong.
+
+The editor used to shorten links automatically, through TinyURL, on every
+import. That is gone. In its place:
+
+- Campaign tracking (`utm_source`, `mc_eid` and the rest) is stripped on
+  import. Nothing leaves the building to make that happen.
+- Breeze rewrites every newsletter link into a thousand characters of click
+  tracking, which really would make an unscannable code. Only the wrapper knows
+  the address behind it and a browser is not allowed to look, so the editor
+  asks the Sheet's own script, which is allowed to. This needs Code.gs
+  redeployed — see below.
+- Anything still going through a shortener says so on the card, and tells you
+  to paste the address it actually leads to.
+
+> **After updating Code.gs**, redeploy it: Apps Script → Deploy → Manage
+> deployments → the pencil → New version → Deploy. Without that the editor
+> falls back to leaving the tracking links exactly as they arrived, with their
+> warning showing — the import still works, the QR codes are just dense.
+
 ### Keep the links short
 
 This is the one that will bite you. The newsletter's signup links come from

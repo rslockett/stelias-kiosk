@@ -174,6 +174,42 @@
   }
 
   /**
+   * Take the junk off a link without handing it to anybody.
+   *
+   * The editor used to shorten links through TinyURL, automatically, on every
+   * import. The reasoning was sound — a very long address makes a dense QR
+   * code, and a dense code has to be walked up to — but TinyURL now shows an
+   * advertising page with a countdown before it forwards. So every code on the
+   * wall scanned into an advert. Somebody standing in the hall with a coffee
+   * reads that as the parish's screen being broken, and they are not wrong.
+   *
+   * A QR code does not actually care how long the address is; it just draws a
+   * denser square. What genuinely bloats these links is the campaign tracking
+   * a mailing service staples on — utm_source, mc_eid and their friends, often
+   * more characters than the address itself. Those mean nothing to the person
+   * scanning and come off here, with no third party in the middle and nothing
+   * to wait through on arrival.
+   */
+  const TRACKING_PARAMS = /^(utm_|mc_|_hs|pk_|piwik_|matomo_|ref_|vero_|oly_|s_cid$|icid$|fbclid$|gclid$|dclid$|msclkid$|igshid$|mkt_tok$|trk$|trkCampaign$|yclid$|wickedid$|_ke$|ck_subscriber_id$)/i;
+
+  function tidyUrl(url) {
+    if (!/^https?:\/\//i.test(url)) return url;
+    let u;
+    try { u = new URL(url); } catch (e) { return url; }
+
+    let touched = false;
+    Array.from(u.searchParams.keys()).forEach(k => {
+      if (TRACKING_PARAMS.test(k)) { u.searchParams.delete(k); touched = true; }
+    });
+    if (!touched) return url;
+
+    // Keep the "?" off the end when stripping emptied the query entirely.
+    let out = u.toString();
+    if (!u.searchParams.toString()) out = out.replace(/\?(?=#|$)/, '');
+    return out;
+  }
+
+  /**
    * "Scan to sign up" makes no sense next to an email QR code, and a bare
    * default gives no hint *whose* email it is when a card only has one.
    * Put the address right in the caption instead.
@@ -728,6 +764,7 @@
 
   global.Importer = {
     split, splitEml, splitBlocks, cleanup, toTsv, toMatrix, findDate, extractLink,
+    tidyUrl,
     looksLikeHeading, cleanHeading, unwrapParagraphs, autoBulletize, defaultLabelFor,
     structureSchedule, isDayHeading, linkPairs, COLUMNS,
   };

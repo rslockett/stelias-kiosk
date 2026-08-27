@@ -348,12 +348,37 @@
       });
   }
 
+  function shortenedUrls(item) {
+    if (!global.Eml || !global.Eml.isShortenedUrl) return [];
+    return global.Importer.linkPairs(item.link, item.linkLabel)
+      .map(p => p.url)
+      .filter(url => global.Eml.isShortenedUrl(url));
+  }
+
   /**
-   * Warn about links that make a QR code nobody can scan. A long tracking URL
-   * produces a very dense symbol, and a dense symbol has to be walked up to.
+   * Warn about links that will not do what the person scanning them expects.
+   *
+   * Two different faults, and the shortener is the one worth naming out loud:
+   * the QR code scans perfectly and then drops the visitor on an advertising
+   * page with a countdown. From the hall that looks like the parish's screen
+   * is broken. There is nothing to gain by it either — a QR code does not care
+   * how long the address is, it just draws a slightly denser square.
    */
   function linkWarning(item) {
     if (!item.link) return '';
+
+    const short = shortenedUrls(item);
+    if (short.length) {
+      const host = (function () {
+        try { return new URL(short[0]).hostname.replace(/^www\./, ''); }
+        catch (e) { return 'a link shortener'; }
+      })();
+      return (short.length > 1 ? short.length + ' of these links go' : 'This link goes') +
+        ' through ' + host + ', which shows an advert and a countdown before the' +
+        ' real page. Paste the address it actually leads to instead — a QR code' +
+        ' has no trouble with a long one.';
+    }
+
     const dense = denseUrls(item);
     if (!dense.length) return '';
     const many = global.Importer.linkPairs(item.link, item.linkLabel).length > 1;
@@ -480,7 +505,6 @@
         (warn ?
           '<p class="linkwarn">' +
             '<span>⚠ ' + esc(warn) + '</span>' +
-            '<button type="button" class="btn btn--ghost btn--sm" data-act="shorten">Shorten it</button>' +
           '</p>' : '') +
 
         '<div class="grid2" style="margin-top:.8rem">' +
@@ -1021,7 +1045,6 @@
 
     if (act === 'select') { select(i); return; }
 
-    if (act === 'shorten') { shortenOnCard(btn, i); return; }
     if (act === 'rewrite') { rewriteOnCard(i); return; }
     if (act === 'rewrite-retry') { rewriteOnCard(i, { noCache: true }); return; }
 
@@ -1106,42 +1129,52 @@
     }
   });
 
-  /* -------------------------------------------------------------- shorten -- */
+  /* ----------------------------------------------------------- tidy links -- */
 
-  /**
-   * Replace a long link with a short one via TinyURL's free, keyless
-   * endpoint. This sends the destination address to a third party — fine for
-   * the public signup and donation pages these point at, which is why it is a
-   * button somebody presses rather than something that happens quietly.
-   */
-  function shortenLink(url) {
-    return fetch('https://tinyurl.com/api-create.php?url=' + encodeURIComponent(url))
-      .then(r => { if (!r.ok) throw new Error('TinyURL returned ' + r.status); return r.text(); })
-      .then(t => {
-        const short = t.trim();
-        if (!/^https?:\/\/\S+$/.test(short)) throw new Error('Unexpected response');
-        return short;
-      });
+  /** Every link on one announcement, with the campaign tracking taken off. */
+  function tidyItemLinks(item) {
+    const pairs = global.Importer.linkPairs(item.link, item.linkLabel);
+    if (!pairs.length) return false;
+    const tidied = pairs.map(p => ({ url: global.Importer.tidyUrl(p.url), label: p.label }));
+    if (tidied.every((p, i) => p.url === pairs[i].url)) return false;
+    item.link = tidied.map(p => p.url).join('\n');
+    item.linkLabel = tidied.map(p => p.label).join('\n');
+    return true;
+  }
+
+  /** Runs after every import. Nothing leaves the building to make it happen. */
+  function tidyAllLinks(list) {
+    let changed = false;
+    list.forEach(item => { if (tidyItemLinks(item)) changed = true; });
+    return changed;
   }
 
   /**
-   * Shorten every dense link on one announcement, leaving the fine ones
-   * alone. A single failure keeps that one link as it was rather than losing
-   * the whole set over one bad request.
+   * Ask the Sheet's script what the newsletter's tracking links really point
+   * at, and put the real addresses on the cards.
+   *
+   * Breeze wraps every link in a thousand characters of click tracking, which
+   * makes a QR code nobody can scan. Only the wrapper knows the address behind
+   * it, and a browser is not allowed to look — so the script looks, and this
+   * quietly rewrites the cards as the answers come in.
+   *
+   * Nothing waits on it. Every announcement is already in the list and
+   * editable; if the script is not deployed, or is slow, or says nothing, the
+   * links stay as they arrived and keep their warning, which is exactly the
+   * situation the editor is there to handle.
    */
-  function shortenItemLinks(item) {
-    const pairs = global.Importer.linkPairs(item.link, item.linkLabel);
-    const dense = new Set(denseUrls(item));
-    if (!dense.size) return Promise.resolve(false);
-    return Promise.all(pairs.map(p =>
-      dense.has(p.url)
-        ? shortenLink(p.url).then(short => ({ url: short, label: p.label })).catch(() => p)
-        : Promise.resolve(p)
-    )).then(updated => {
-      item.link = updated.map(p => p.url).join('\n');
-      item.linkLabel = updated.map(p => p.label).join('\n');
-      return true;
-    });
+  function unwrapAllLinks(list) {
+    if (!global.Unwrap) return;
+    const pending = list.filter(it => it.link);
+    if (!pending.length) return;
+
+    Promise.all(pending.map(it => global.Unwrap.item(it).catch(() => false)))
+      .then(results => {
+        if (!results.some(Boolean)) return;
+        // The list may have been republished or replaced while we waited.
+        if (!list.every(it => items.indexOf(it) !== -1)) return;
+        renderAll();
+      });
   }
 
   /* ------------------------------------------------------- formatting bar -- */
@@ -1283,30 +1316,6 @@
       '</div>';
   }
 
-  function shortenOnCard(btn, i) {
-    btn.disabled = true;
-    btn.classList.add('is-busy');
-    shortenItemLinks(items[i])
-      .then(() => { renderAll(); toast('Shortened — the QR code will be much easier to scan'); })
-      .catch(err => {
-        console.error(err);
-        btn.disabled = false;
-        btn.classList.remove('is-busy');
-        toast('Could not shorten that link — check the connection and try again');
-      });
-  }
-
-  /**
-   * Runs after every import, with no click needed: a dense QR code is a real
-   * problem on the TV rather than an optional tidy-up. Anything that can't be
-   * shortened keeps its warning and the manual button as a fallback.
-   */
-  function autoShortenAll(list) {
-    list.forEach(item => {
-      shortenItemLinks(item).then(changed => { if (changed) renderAll(); });
-    });
-  }
-
   /* ============================================================ importing == */
 
   importToggle.addEventListener('click', () => {
@@ -1336,7 +1345,8 @@
       end: it.end || '',
     }));
 
-    autoShortenAll(fresh);
+    tidyAllLinks(fresh);
+    unwrapAllLinks(fresh);
 
     if (!items.length) { applyImport(fresh, 'replace', label); return; }
 
@@ -1507,14 +1517,14 @@
         // the list, split out of the newsletter, with its schedule and its
         // contacts already laid out by the importer's own rules — none of
         // which needs Google, a key or an allowance. What has been lost is
-        // the shortening, so say that, and say where the tools are.
+        // the laying out, so say that, and say where the tools are.
         const quota = /allowance/i.test(err.message);
         toast(quota
           ? 'Google’s free allowance is used up for today — it resets at midnight ' +
             'Pacific. Everything imported fine and is ready to edit by hand; use the ' +
             'B / Heading / List buttons and watch the Slide space bar.'
-          : 'Could not shorten these automatically (' + err.message + '). They are ' +
-            'all here and laid out — edit them by hand and watch the Slide space bar.');
+          : 'Could not lay these out automatically (' + err.message + '). They are ' +
+            'all here — edit them by hand and watch the Slide space bar.');
       }
     }
   }

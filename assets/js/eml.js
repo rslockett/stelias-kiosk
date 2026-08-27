@@ -130,6 +130,30 @@
     't.co', 'bit.ly/r', 'awstrack.me', 'mandrillapp.com',
   ];
 
+  // Link shorteners. These are not tracking wrappers — the address is short
+  // and the QR code is perfectly scannable — but most of them now put an
+  // advertising page with a countdown between the scan and the real page.
+  // Someone holding a coffee gets a few seconds of that instead of the
+  // sign-up form, which reads as broken rather than as an advert.
+  //
+  // The real address always works and always goes straight there, so wherever
+  // we can find it, we use it.
+  const SHORTENER_HOSTS = [
+    'tinyurl.com', 'bit.ly', 'goo.gl', 'ow.ly', 'buff.ly', 'is.gd', 'tiny.cc',
+    'rebrand.ly', 'shorturl.at', 'cutt.ly', 't.ly', 'rb.gy', 'lnkd.in',
+    'trib.al', 'shorte.st', 'v.gd',
+  ];
+
+  function isShortenedUrl(url) {
+    if (!url || /^mailto:/i.test(url)) return false;
+    try {
+      const host = new URL(url).hostname.toLowerCase().replace(/^www\./, '');
+      return SHORTENER_HOSTS.indexOf(host) !== -1;
+    } catch (e) {
+      return false;
+    }
+  }
+
   function isTrackingUrl(url) {
     if (!url) return false;
     if (/^mailto:/i.test(url)) return false;   // always short, never a tracking wrapper
@@ -152,17 +176,27 @@
    * link text, so prefer that when we can find it.
    */
   function bestUrl(href, linkText) {
-    const tracking = isTrackingUrl(href);
-    if (!tracking) return { url: href || '', tracking: false, recovered: false };
+    const wrapped = isTrackingUrl(href);
+    const short = isShortenedUrl(href);
+    if (!wrapped && !short) {
+      return { url: href || '', tracking: false, shortened: false, recovered: false };
+    }
 
+    // The newsletter routinely prints the real address as the link's own text
+    // even when the href is a wrapper — "Visit sainteliaschurch.org/give". When
+    // it does, that is the address to put behind the QR code.
     const m = String(linkText || '').match(VISIBLE_URL);
     if (m && m[1] && m[1].indexOf('.') !== -1) {
       const rebuilt = /^https?:\/\//i.test(m[0]) ? m[0] : 'https://' + m[1];
-      if (!isTrackingUrl(rebuilt)) {
-        return { url: rebuilt.replace(/[.,)]+$/, ''), tracking: false, recovered: true };
+      if (!isTrackingUrl(rebuilt) && !isShortenedUrl(rebuilt)) {
+        return {
+          url: rebuilt.replace(/[.,)]+$/, ''),
+          tracking: false, shortened: false, recovered: true,
+        };
       }
     }
-    return { url: href || '', tracking: true, recovered: false };
+
+    return { url: href || '', tracking: wrapped, shortened: short, recovered: false };
   }
 
   /* ------------------------------------------------------------ HTML -> blocks */
@@ -431,6 +465,7 @@
     parseEml,
     htmlToBlocks,
     isTrackingUrl,
+    isShortenedUrl,
     bestUrl,
     cleanText,
     _internals: { decodeQuotedPrintable, decodeBase64, parseHeaders, headerParam, blockIsBold },

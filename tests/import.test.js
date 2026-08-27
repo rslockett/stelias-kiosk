@@ -143,6 +143,99 @@
     has(give.link, 'example.org/give', 'the URL still went to the QR code');
   });
 
+  /* ---------------------------------------------------------- shortened -- */
+
+  // A shortener scans fine and then parks the visitor on an advertising page
+  // with a countdown. From across the hall that reads as the parish's screen
+  // being broken, and there is nothing gained: a QR code does not care how
+  // long the address is.
+  test('link shorteners are recognised for what they are', () => {
+    const short = global.Eml.isShortenedUrl;
+    ['https://tinyurl.com/abc123', 'https://bit.ly/xyz', 'http://www.ow.ly/q',
+     'https://rb.gy/abc'].forEach(u =>
+      assert(short(u), u + ' should be seen as a shortened link'));
+
+    ['https://sainteliaschurch.org/give', 'mailto:office@example.org',
+     'https://steliasaustin.breezechms.com/form/welcome',
+     ''].forEach(u =>
+      assert(!short(u), JSON.stringify(u) + ' is not a shortener'));
+  });
+
+  test('the real address is taken over the shortener when the email shows it', () => {
+    const retreat = find(items, 'Parish Retreat');
+    lacks(retreat.link, 'tinyurl', 'the shortener was kept over the real address');
+    has(retreat.link, 'example.org/retreat', 'the address the newsletter printed');
+  });
+
+  test('a shortener with nothing to recover is kept, and reported', () => {
+    const choirs = items.filter(it => /Choir Practice/.test(it.title));
+    assert(choirs.length, 'the announcement went missing');
+    // Nothing to recover: the link text is the shortener too. Keeping it beats
+    // dropping the only address there is — the editor is told about it instead.
+    has(choirs[0].link, 'tinyurl.com/xyz789');
+    assert(global.Eml.isShortenedUrl(choirs[0].link),
+      'the editor has to be able to tell that this one needs replacing');
+  });
+
+  test('none of the parish\'s own sign-up links go through a shortener', () => {
+    const cfg = global.KIOSK_CONFIG;
+    [['coffee hour', cfg.coffeeHour && cfg.coffeeHour.signupUrl],
+     ['holy bread', cfg.holyBread && cfg.holyBread.signupUrl],
+     ['welcome', cfg.welcome && cfg.welcome.formUrl]].forEach(pair => {
+      if (!pair[1]) return;
+      assert(!global.Eml.isShortenedUrl(pair[1]),
+        'the ' + pair[0] + ' QR code points at a shortener: ' + pair[1]);
+    });
+  });
+
+  // The editor used to shorten links through TinyURL automatically, on every
+  // import, which is how tinyurls got onto the wall in the first place. No
+  // path through this code may hand a parish address to a shortener again.
+  test('nothing in the editor sends links away to be shortened', async () => {
+    const src = await fetch('assets/js/import-ui.js').then(r => r.text());
+    lacks(src, 'api-create.php', 'the TinyURL endpoint is back');
+    lacks(src, 'tinyurl.com/api', 'something is calling a shortener');
+  });
+
+  test('campaign tracking comes off a link, and nothing else does', () => {
+    const cases = [
+      ['https://example.org/form?utm_source=newsletter&utm_medium=email',
+       'https://example.org/form'],
+      ['https://example.org/f?id=7&utm_campaign=fall&mc_eid=abc',
+       'https://example.org/f?id=7'],
+      ['https://example.org/give', 'https://example.org/give'],
+      ['https://example.org/a?fbclid=xyz#section', 'https://example.org/a#section'],
+      ['mailto:office@example.org', 'mailto:office@example.org'],
+    ];
+    cases.forEach(pair => {
+      const got = global.Importer.tidyUrl(pair[0]);
+      assert(got === pair[1], JSON.stringify(pair[0]) + '\n   became ' +
+        JSON.stringify(got) + '\n   wanted ' + JSON.stringify(pair[1]));
+    });
+  });
+
+  // Breeze wraps every newsletter link in ~1000 characters of click tracking.
+  // A QR code of that is unscannable, which is the whole reason the editor
+  // used to reach for a shortener. The address behind it is asked for instead.
+  test('the links worth unwrapping are the wrapped ones, and only those', () => {
+    const needs = global.Unwrap.needsUnwrapping;
+    assert(needs('https://links.breezechms.com/ls/click?upn=' + 'x'.repeat(900)),
+      'a Breeze click wrapper has to be unwrapped');
+    assert(needs('https://tinyurl.com/abc123'), 'so does a shortener');
+
+    ['https://sainteliaschurch.org/give', 'mailto:office@example.org',
+     'https://steliasaustin.breezechms.com/form/welcome', '', 'not a url']
+      .forEach(u => assert(!needs(u),
+        JSON.stringify(u) + ' should be left alone'));
+  });
+
+  test('the welcome slide is configured well enough to build', () => {
+    const w = global.KIOSK_CONFIG.welcome || {};
+    assert(String(w.formUrl || '').trim(), 'no welcome form to scan');
+    assert(String(w.title || '').trim(), 'the welcome slide needs a heading');
+    assert(/^https?:\/\//.test(w.formUrl), 'the form address needs its https://');
+  });
+
   test('office housekeeping arrives switched off, not deleted', () => {
     const note = find(items, 'Note on Announcements');
     assert(note.include === false, 'should be off by default');
