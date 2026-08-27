@@ -14,6 +14,8 @@
   const stage = document.getElementById('stage');
   const stagewrapEl = document.getElementById('stagewrap');
   const railEl = document.getElementById('rail');
+  const bandEl = document.getElementById('band');
+  const taglineEl = document.getElementById('tagline');
   const dotsEl = document.getElementById('dots');
   const progressEl = document.getElementById('progress');
   const clockTimeEl = document.getElementById('clock-time');
@@ -29,38 +31,19 @@
   let timer = null;
   let paused = false;
 
-  // The announcement deck and the day's saints slide are two independent,
-  // independently-polled sources. Whichever changes, the merged deck is
-  // rebuilt and handed to onDeck exactly as if it were one source — today's
-  // saints lead the rotation, the announcements follow.
+  // What rotates is the announcements, and only the announcements.
   //
-  // The two sign-ups are polled the same way but do not appear here at all.
-  // They live in the rail instead — see onSignupCard.
+  // Three other things are polled exactly the same way and none of them takes
+  // a turn on the stage: the two sign-ups stand in the rail, the welcome
+  // stands in the band beneath, and the day's commemoration is a line in the
+  // masthead. Each of those is standing information — true all week, wanted
+  // at the moment somebody looks up rather than whenever a slide next comes
+  // round — and putting it in the rotation was making the parish's actual
+  // news wait behind it.
   let announcementSlides = [];
-  let liturgicalSlide = null;
-
-  /**
-   * The welcome slide, built once from config.js. Unlike everything else on
-   * the screen it has no source to poll — it says the same thing every week,
-   * which is the point of it. A visitor sees it whichever Sunday they walk in.
-   */
-  const welcomeSlide = (function () {
-    const w = CFG.welcome || {};
-    const url = String(w.formUrl || '').trim();
-    if (!url) return null;
-    return {
-      title: w.title || 'Welcome',
-      body: w.body || '',
-      link: url,
-      linkLabel: w.qrLabel || CFG.defaultQrLabel,
-      image: String(w.image || '').trim(),
-    };
-  })();
 
   function mergedDeck() {
-    return (liturgicalSlide ? [liturgicalSlide] : [])
-      .concat(welcomeSlide ? [welcomeSlide] : [])
-      .concat(announcementSlides);
+    return announcementSlides;
   }
 
   /* ---------------------------------------------------------------- clock -- */
@@ -137,6 +120,16 @@
     stage.appendChild(el);
 
     // Element must be in the document (and laid out) before we can measure it.
+    //
+    // Codes first, then words. The QR panel is the `auto` column of the grid,
+    // so its width is settled before the words are measured against what is
+    // left — doing it the other way round sizes the text for a column that is
+    // about to change under it.
+    const qr = global.Slide.fitQrColumn(el);
+    if (qr.floored) {
+      console.warn('[kiosk] too many codes for the room on this slide:', slide.title);
+    }
+
     const main = el.querySelector('.slide__main');
     const fit = el.querySelector('.slide__fit');
     const result = global.Slide.fitToBox(main, fit, {
@@ -393,6 +386,68 @@
     sourceReported(kind === 'coffee' ? 'the coffee sign-up' : 'the bread sign-up');
   }
 
+  /* ------------------------------------------------------------------ band -- */
+
+  /*
+   * The welcome, standing under the announcements.
+   *
+   * Built once from config.js — unlike everything else on this screen it has
+   * no source to poll, because it says the same thing every week, which is
+   * the point of it. A visitor sees it whichever Sunday they walk in, and
+   * without waiting for it to come round.
+   */
+  function renderBand() {
+    if (!bandEl) return;
+
+    const w = CFG.welcome || {};
+    const url = String(w.formUrl || '').trim();
+    if (!url) { bandEl.hidden = true; return; }
+
+    bandEl.innerHTML = global.Slide.buildWelcomeBandHtml({
+      title: w.title || 'Welcome',
+      body: w.body || '',
+      url,
+      qrLabel: w.qrLabel || CFG.defaultQrLabel,
+    });
+    bandEl.hidden = false;
+  }
+
+  /* ------------------------------------------------------------ the day -- */
+
+  /*
+   * The day's commemoration, in the masthead where the tagline used to be.
+   *
+   * It was a slide until it was this. As a slide it opened the rotation every
+   * time, which meant the one thing on the screen that is the same all day
+   * was also the thing the hall saw most often. The masthead already had a
+   * line for a fixed slogan; the living day is a better use of it, and it
+   * costs no room at all.
+   *
+   * The saints themselves do not fit here and are not shown — the day, its
+   * fast and its tone are what a masthead can carry. If the liturgical tab
+   * is not configured, the configured tagline stands as before.
+   */
+  function renderLiturgical(slide) {
+    if (!taglineEl) return;
+
+    if (!slide || !slide.day) {
+      taglineEl.classList.remove('is-liturgical');
+      taglineEl.textContent = CFG.tagline;
+      return;
+    }
+
+    const parts = [slide.day, slide.fasting, slide.tone].filter(Boolean);
+    taglineEl.classList.add('is-liturgical');
+    taglineEl.innerHTML = parts
+      .map(p => escapeForMasthead(p))
+      .join('<span class="sep">\u00b7</span>');
+  }
+
+  function escapeForMasthead(text) {
+    return String(text)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
   function renderRail() {
     if (!railEl || !stagewrapEl) return;
 
@@ -409,15 +464,13 @@
     railEl.innerHTML = '';
     cards.forEach(card => railEl.appendChild(global.Slide.buildSignupCardEl(card)));
 
-    // The stage may have just changed width. Whatever is on it was fitted to
-    // the old one.
-    if (!holdingFirstSlide && deck.length && currentEl) show(index);
+    // The stage may have just changed width. Nothing to do about it here —
+    // watchStageSize below notices and re-fits whatever is on it.
   }
 
   function onLiturgicalSlide(slide) {
     console.log('[kiosk] liturgical updated:', slide ? slide.title : 'not configured');
-    liturgicalSlide = slide;
-    applyDeck(mergedDeck());
+    renderLiturgical(slide);
     sourceReported("the day's saints");
   }
 
@@ -635,10 +688,17 @@
     if (CFG.cornerOrnament !== undefined && CFG.cornerOrnament !== null) {
       document.documentElement.style.setProperty('--ornament', CFG.cornerOrnament);
     }
+    if (CFG.centreOrnament !== undefined && CFG.centreOrnament !== null) {
+      document.documentElement.style.setProperty('--centre-ornament', CFG.centreOrnament);
+    }
 
     document.getElementById('church-name').textContent = CFG.churchName;
     document.getElementById('tagline').textContent = CFG.tagline;
     document.getElementById('clock').hidden = !CFG.showClock;
+
+    // Before anything else measures itself against the stage: the band takes
+    // height from it, and it takes the same height on every screen forever.
+    renderBand();
 
     tickClock();
     setInterval(tickClock, 10 * 1000);
@@ -691,12 +751,54 @@
 
     window.addEventListener('keydown', onKey);
 
-    // Re-fit the current slide if the window changes size.
-    let resizeTimer;
-    window.addEventListener('resize', () => {
-      clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(() => { if (deck.length) show(index); }, 250);
-    });
+    watchStageSize();
+  }
+
+  /* ----------------------------------------------------- keeping it inside -- */
+
+  /*
+   * Re-fit the slide whenever the stage changes size.
+   *
+   * Every slide is measured against the box it is given, and the box is no
+   * longer a fixed thing. The sign-up rail arrives from the network a second
+   * or two after boot and takes a quarter of the width with it; the welcome
+   * band appears underneath and takes some height; the weather line lands in
+   * the masthead and pushes everything down a few pixels. Each of those
+   * changes the stage AFTER a slide has already been sized for it, and a
+   * slide sized for a bigger box than it has is exactly the failure this is
+   * here to prevent — words and codes drawn straight over the top of the
+   * sign-ups underneath.
+   *
+   * Watching the stage itself rather than the window catches all of it,
+   * including the changes the window never hears about. The rebuild is a
+   * whole show() rather than a re-measure because trimming is destructive:
+   * a slide that lost its last line to a smaller box should get it back when
+   * the box grows again, and only rebuilding from the original slide can do
+   * that.
+   */
+  function watchStageSize() {
+    let lastW = 0, lastH = 0, timer = null;
+
+    const refit = () => {
+      const w = stage.clientWidth, h = stage.clientHeight;
+      // A pixel of rounding is not a layout change; re-showing on every one of
+      // those would crossfade the same slide forever.
+      if (Math.abs(w - lastW) < 2 && Math.abs(h - lastH) < 2) return;
+      lastW = w; lastH = h;
+      if (!holdingFirstSlide && deck.length && currentEl) show(index);
+    };
+
+    const schedule = () => {
+      clearTimeout(timer);
+      timer = setTimeout(refit, 250);
+    };
+
+    if (typeof ResizeObserver === 'function') {
+      new ResizeObserver(schedule).observe(stage);
+    }
+    // Belt and braces for anything without ResizeObserver, and for the window
+    // changes that do not move the stage at all.
+    window.addEventListener('resize', schedule);
   }
 
   if (document.readyState === 'loading') {

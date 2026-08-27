@@ -316,6 +316,106 @@
     });
   });
 
+  /* ---------------------------------------------------- nothing runs over -- */
+
+  /*
+   * The screen is no longer all stage. A sign-up rail takes a quarter of the
+   * width and a welcome band takes a slice of the height, and what is left is
+   * what every slide has to fit inside.
+   *
+   * fitToBox has always shrunk the words. Nothing ever shrank the codes: they
+   * are sized in vh, a fraction of the height of the SCREEN, not of the box
+   * they stand in. A staff directory carrying three or four of them ran them
+   * straight off the bottom of the stage and printed them over the sign-ups
+   * underneath. This is that case.
+   */
+
+  const manyLinks = (n) => ({
+    title: 'Parish Staff',
+    body: 'Reach any of us directly.',
+    link: Array.from({ length: n }, (_, i) => 'https://example.org/person' + i).join('\n'),
+    linkLabel: Array.from({ length: n }, (_, i) => 'Person Number ' + i).join('\n'),
+  });
+
+  /*
+   * This page has no stylesheet — it is a test report, and loading the kiosk's
+   * own would hide its results behind `overflow: hidden`. So the fixture is
+   * given the handful of rules the measurement actually depends on, copied
+   * from kiosk.css: a stage that clips, a slide filling it, and codes that
+   * start at the size the stylesheet starts them at. If those rules change
+   * over there, change them here too — or this passes while the hall breaks.
+   */
+  const STAGE_CSS =
+    '.t-stage { position: relative; overflow: hidden; }' +
+    '.t-stage .slide { position: absolute; inset: 0; display: grid; gap: 0 4vw;' +
+      ' align-items: center; padding: 2.2vh 0 1.4vh; }' +
+    '.t-stage .slide--qr { grid-template-columns: 1fr auto; }' +
+    '.t-stage .slide__main { min-width: 0; min-height: 0; height: 100%; overflow: hidden; }' +
+    '.t-stage .slide__qr { justify-self: center; }' +
+    '.t-stage .qr { display: flex; flex-direction: column; align-items: center; gap: 1.3vh; }' +
+    '.t-stage .qr-group { display: flex; flex-direction: column; align-items: center;' +
+      ' gap: 1.6vh; }' +
+    '.t-stage .qr__frame { width: 194px; padding: 1.5vh; box-sizing: border-box;' +
+      ' line-height: 0; }' +
+    '.t-stage .qr__svg { width: 100%; height: auto; display: block; }' +
+    '.t-stage .qr__label { margin: 0; max-width: 194px; font-size: 14px; }';
+
+  let stageCssEl = null;
+  function ensureStageCss() {
+    if (stageCssEl) return;
+    stageCssEl = document.createElement('style');
+    stageCssEl.textContent = STAGE_CSS;
+    document.head.appendChild(stageCssEl);
+  }
+
+  /** Put a slide in a stage of a given size, fit it, and measure the damage. */
+  function fitInBox(slide, width, height) {
+    ensureStageCss();
+
+    const box = document.createElement('div');
+    box.className = 't-stage';
+    box.style.cssText = 'width:' + width + 'px;height:' + height + 'px';
+    document.body.appendChild(box);
+
+    const el = global.Slide.buildSlideEl(slide);
+    box.appendChild(el);
+
+    const before = el.scrollHeight - el.clientHeight;
+    const qr = global.Slide.fitQrColumn(el);
+    const after = el.scrollHeight - el.clientHeight;
+    const frame = el.querySelector('.qr__frame');
+    const frameWidth = frame ? frame.getBoundingClientRect().width : 0;
+
+    box.remove();
+    return { before, after, qr, frameWidth };
+  }
+
+  test('a slide carrying several codes does not run off a short stage', () => {
+    const r = fitInBox(manyLinks(3), 1275, 610);
+    assert(r.before > 0,
+      'the fixture is meant to overflow before it is fitted — it did not, so this ' +
+      'check is no longer testing anything');
+    assert(r.after <= 0,
+      'three codes still overflow the stage by ' + r.after + 'px — on the TV they ' +
+      'would be drawn over the sign-ups underneath');
+  });
+
+  test('the codes are what shrink, and only as far as they have to', () => {
+    const roomy = fitInBox(manyLinks(3), 1275, 1000);
+    const tight = fitInBox(manyLinks(3), 1275, 560);
+    assert(tight.frameWidth < roomy.frameWidth,
+      'a shorter stage should have produced smaller codes (' +
+      Math.round(tight.frameWidth) + 'px vs ' + Math.round(roomy.frameWidth) + 'px)');
+    assert(tight.frameWidth >= 84,
+      'shrunk past what a phone can read: ' + Math.round(tight.frameWidth) + 'px');
+  });
+
+  test('a slide that already fits is left alone', () => {
+    const r = fitInBox({ title: 'One code', body: 'Short.', link: 'https://example.org',
+      linkLabel: 'Scan' }, 1275, 1000);
+    assert(r.qr.shrunk === false, 'nothing needed shrinking, but something was shrunk');
+  });
+
   /* ------------------------------------------------------- the sign-up rail -- */
 
   /*

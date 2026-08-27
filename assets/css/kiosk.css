@@ -20,9 +20,15 @@
   --oxblood:    #621b03;   /* headings */
   --navy:       #0b3954;
 
+  /* The ground the standing information sits on — the sign-up rail and the
+     welcome band — against the lighter cream the announcements keep. */
+  --standing:      rgba(244, 228, 216, 0.85);
+  --standing-edge: rgba(213, 191, 119, 0.30);
+
   --safe-area: 3.5%;       /* set from config.js — guards against TV overscan */
   --transition: 700ms;     /* set from config.js */
   --ornament: 0.17;        /* set from config.js — corner cross strength */
+  --centre-ornament: 0.09; /* set from config.js — centre cross strength */
 }
 
 * { box-sizing: border-box; }
@@ -185,6 +191,13 @@ body::after {
   line-height: 1.2;
 }
 
+/* The day itself, where a fixed slogan used to be — the commemoration, its
+   fast and its tone. It costs no new room on the screen: the masthead already
+   had this line, and a live liturgical day is a better use of it than a
+   sentence that says the same thing every week. */
+.brand__tagline.is-liturgical { font-style: normal; font-size: 2.6vh; }
+.brand__tagline .sep { color: rgba(227, 191, 119, 0.5); padding: 0 0.55em; }
+
 .clock { text-align: right; }
 
 .clock__time {
@@ -226,7 +239,7 @@ body::after {
 
 .stagewrap.has-rail {
   grid-template-columns: 1fr 26%;
-  gap: 0 2.4vw;
+  gap: 0 1.6vw;
 }
 
 /* The stage and the empty-state notice share the left column and take turns,
@@ -238,10 +251,43 @@ body::after {
   min-height: 0;
 }
 
+/* The parish cross once more, in the middle of the announcements.
+   ----------------------------------------------------------------------------
+   Centred in the STAGE rather than in the screen. The screen's own centre now
+   falls under the sign-up rail, whose tinted ground would half-cover the
+   artwork — which reads as an accident rather than a decision. The stage
+   clips its own overflow, so the cross can never stray into the rail either.
+
+   It is drawn at a fraction of the corners' strength, and it has to be: the
+   corners have nothing in front of them, and this has a paragraph. The size
+   is doing as much work as the opacity — a large, soft shape with thick
+   strokes survives a television, where a small delicate one at the same
+   opacity is exactly what edge sharpening and a lit hall destroy. Judge any
+   change to it behind the densest slide there is, never behind a title and
+   two lines. */
+.stage::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: url('../img/cross-byzantine.png') no-repeat center center;
+  background-size: 62% auto;
+  filter: saturate(1.35);
+  opacity: var(--centre-ornament);
+  pointer-events: none;
+}
+
 .stage {
   position: relative;
   flex: 1 1 auto;
   min-height: 0;                    /* lets the flex child actually shrink */
+  /* The backstop. Everything else tries hard to make each slide fit the box
+     it is given — the words shrink, the codes shrink, and both are measured
+     again whenever the box changes size. This is what happens if all of that
+     is somehow still wrong: the overflow is clipped inside the stage rather
+     than drawn across the sign-ups and the welcome underneath. A slide that
+     loses its last line is a bad slide; a screen with two announcements
+     printed on top of each other is a broken television. */
+  overflow: hidden;
 }
 
 .slide {
@@ -507,10 +553,15 @@ body::after {
   flex-direction: column;
   justify-content: center;
   gap: 1.3vh;
-  padding-left: 2.2vw;
-  /* The frame's own hairline, continued inward — the rail reads as part of
-     the border rather than a second panel bolted onto the side. */
-  border-left: 1px solid rgba(213, 146, 11, 0.34);
+  /* Standing information sits on the deeper cream the page already fades to
+     at its foot; the announcements keep the lighter ground and read as the
+     thing in front. That change of ground is what separates them, so there is
+     no rule down the side as well — two ways of saying the same thing is one
+     too many, and this screen is quiet enough that a tint is plenty. */
+  padding: 2vh 1.5vw;
+  background: var(--standing);
+  border: 1px solid var(--standing-edge);
+  border-radius: 6px;
 }
 .rail[hidden] { display: none; }
 
@@ -647,6 +698,62 @@ body::after {
 .rail--one .card__count { font-size: 2.1vh; }
 .rail--one .card__scan { font-size: 1.7vh; }
 .rail--one .card__row { font-size: 2.3vh; padding: 0.32em 0.7em; }
+
+/* ----------------------------------------------------------------- band -- */
+
+/* The welcome, permanently under the announcements.
+   ----------------------------------------------------------------------------
+   Same reasoning as the sign-up rail: a visitor deciding whether to leave
+   their name is deciding it now, not in two minutes when a slide comes back
+   round. It sits under the stage rather than across the whole width, because
+   the rail beside it needs every pixel of its own height — a band spanning
+   both columns would take that height away from the sign-ups. */
+.band {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 1.6vw;
+  margin-top: 1.4vh;
+  padding: 1.6vh 1.5vw;
+  background: var(--standing);
+  border: 1px solid var(--standing-edge);
+  border-radius: 6px;
+}
+.band[hidden] { display: none; }
+
+.band .qr__frame { width: 9.5vh; padding: 0.7vh; flex: none; }
+
+.band__text { min-width: 0; }
+
+.band__title {
+  margin: 0;
+  font-family: 'Montserrat', system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 2.1vh;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--oxblood);
+}
+
+/* On the title's line, not under it — see buildWelcomeBandHtml. */
+.band__scan {
+  color: var(--gold-deep);
+  font-size: 0.82em;
+  letter-spacing: 0.09em;
+}
+.band__scan::before {
+  content: '·';
+  color: var(--gold);
+  padding: 0 0.7em;
+  font-weight: 400;
+}
+
+.band__body {
+  margin: 0.7vh 0 0;
+  font-size: 2.35vh;
+  line-height: 1.4;
+  color: var(--ink);
+}
 
 /* ------------------------------------------------------------------- qr -- */
 

@@ -147,26 +147,23 @@ window.KIOSK_CONFIG = {
      formUrl is the parish's welcome form. Put the real address here, not a
      shortened one — see the note above the sign-ups.
 
-     image is the icon shown beside the greeting. Leave it blank and the slide
-     still works, as words and a QR code. A .png is treated as a cut-out and
-     shown without the white mount a photograph gets, so an icon on a
-     transparent ground sits on the parchment rather than in a box.
+     This does not rotate either. It stands in a band under the announcements,
+     always there, for the same reason the sign-ups do: somebody deciding
+     whether to leave their name is deciding it now, and a visitor who has to
+     wait two minutes for a slide to come back round has usually left.
 
-     Leave formUrl blank to leave the welcome slide off the TV entirely.
+     `body` is shown in full, so keep it to a sentence or two — the band is
+     one line of the screen, not a slide.
 
-     It sits near the front of the rotation, after the day's saints and before
-     the announcements, so it comes round often enough that somebody who has
-     just walked in will see it without waiting through the whole week's news.
+     Leave formUrl blank to leave the welcome off the screen entirely.
   -------------------------------------------------------------------------- */
 
   welcome: {
-    title: 'Welcome Visitors',
-    body: 'If this is your first time with us, we are glad you are here.\n\n' +
-      'Please stop by the Inquirers Table before you go. Someone is there to ' +
-      'welcome you, answer any questions, and get to know you.',
-    image: 'assets/img/welcome-prophet-elias.png',
+    title: 'Welcome, Visitors',
+    body: 'Please stop by the Inquirers Table before you go. Someone is there ' +
+      'to welcome you, answer any questions, and get to know you.',
     formUrl: 'https://steliasaustin.breezechms.com/form/welcome',
-    qrLabel: 'Welcome Form',
+    qrLabel: 'Scan for the Welcome Form',
   },
 
 
@@ -277,6 +274,16 @@ window.KIOSK_CONFIG = {
   // look bare from across the hall; drop toward 0.10 if they pull the eye away
   // from the announcement. 0 turns them off entirely.
   cornerOrnament: 0.17,
+
+  // The same cross once more, in the middle of the announcements. A fraction
+  // of the corners' strength, and it has to be — the corners have nothing in
+  // front of them and this has a paragraph behind it. 0 turns it off.
+  //
+  // If you change it, judge it on the wall rather than on a laptop, and
+  // behind the busiest slide you have rather than behind a short one. A
+  // television halves colour detail and chews thin strokes, so a watermark
+  // that looks perfectly judged at a desk can vanish in the hall.
+  centreOrnament: 0.09,
 
   // Show a small dot in the corner when the Sheet can't be reached and the
   // screen is running on its last saved copy.

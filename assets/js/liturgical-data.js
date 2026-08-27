@@ -1,5 +1,5 @@
 /* ============================================================================
-   liturgical-data.js — today's saints and fasting rule, as a slide
+   liturgical-data.js — today's saints and fasting rule
    ----------------------------------------------------------------------------
    The Liturgical Sheet tab holds exactly one row, refreshed once a day by
    sheet/Code.gs from GOARCH's public Online Chapel feed (see the note at the
@@ -47,6 +47,14 @@
       linkLabel: '',
       image: (row.icon || '').trim(),
       order: null,
+      // The same facts unmerged, for the masthead — which has room for the
+      // day, its fast and its tone, and not for the saints. Kept alongside
+      // the assembled `body` rather than replacing it so this stays an
+      // ordinary slide-shaped object for anything that wants one.
+      day: title,
+      saints,
+      fasting,
+      tone,
     };
   }
 

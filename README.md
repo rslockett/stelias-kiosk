@@ -414,18 +414,29 @@ goes stale. An announcement with an End date takes itself down the day after the
 event. Nobody has to remember, which is the point — remembering is exactly what
 doesn't happen in a busy parish.
 
-Standing items (service times, giving, welcome) just get an End date years out.
+Standing items (service times, giving) just get an End date years out.
 
 ---
 
 ## Today in the Church
 
-A slide leading the rotation each day with the day's saints and commemorations,
-the fasting rule, and the tone of the week — pulled automatically from
+The day, its fasting rule and the tone of the week, shown in the masthead
+beside the parish name — pulled automatically from
 [GOARCH's public Online Chapel feed](https://onlinechapel.goarch.org/daily.asp),
 the same data source a number of parish websites have quietly relied on for
 years. Nothing to type in, nothing to remember: it refreshes itself once a
 day.
+
+This used to be a slide, and it opened the rotation every time — which meant
+the one thing on the screen that is the same all day was also the thing the
+hall saw most often, ahead of the parish's actual news. It is a line in the
+masthead now, where a fixed slogan used to sit. That costs no room on the
+screen at all, and it is on it permanently rather than once a cycle.
+
+The masthead has room for the day, the fast and the tone. The saints
+themselves are fetched and stored, but not displayed — the list runs to a
+paragraph on some days, which is a slide's worth of words in a place that has
+one line.
 
 ### Setting it up
 
@@ -442,16 +453,54 @@ day.
 4. Paste that link into `liturgicalCsvUrl` in
    [`assets/js/config.js`](assets/js/config.js).
 
-Leave `liturgicalCsvUrl` blank to leave this slide off the TV entirely. If the
-feed can't be reached on a given night, the tab is simply left as it was
-rather than wiped — yesterday's slide staying up one extra day beats it
-going blank.
+Leave `liturgicalCsvUrl` blank and the masthead keeps the fixed `tagline` from
+config.js instead. If the feed can't be reached on a given night, the tab is
+simply left as it was rather than wiped — yesterday's commemoration staying up
+one extra day beats the line going blank.
 
 > This uses a real, stable, publicly documented GOARCH feed — the same one a
 > long-standing WordPress plugin has pulled from for parish websites — but it
 > isn't an official supported API with an SLA. If GOARCH ever moves it,
 > `LITURGICAL_FEED_URL` near the top of `sheet/Code.gs` is the only line that
 > needs to change.
+
+---
+
+## The welcome band
+
+A visitor deciding whether to leave their name is deciding it now, standing in
+the hall with a cup in one hand. When the welcome was a slide in the rotation
+they had to wait for it to come round again before they could scan anything,
+and by then they have usually gone.
+
+So it stands in a band under the announcements, permanently: the parish's
+welcome form as a code, the sentence a visitor should read, and nothing else.
+It is set in [`assets/js/config.js`](assets/js/config.js) under `welcome` —
+`title`, `body`, `formUrl` and `qrLabel`. There is no Sheet tab behind it,
+because it says the same thing every week, which is the point of it.
+
+Keep `body` to a sentence or two. It is shown in full, and the band is one
+line of the screen rather than a slide — every line it takes is a line the
+announcements above it do not get. Leave `formUrl` blank to leave the welcome
+off the screen entirely.
+
+---
+
+### The cross in the middle
+
+The parish cross is echoed once in the centre of the announcements as well as
+in the four corners, at about half the corners' strength — `centreOrnament` in
+[`assets/js/config.js`](assets/js/config.js), or 0 to turn it off.
+
+It is centred in the announcements rather than in the screen, because the
+screen's own centre now falls under the sign-up rail and would be half-covered
+by it.
+
+If you ever change the strength, judge it in the hall rather than at a desk,
+and behind the busiest slide you have rather than a short one. A television
+halves colour detail and chews thin strokes, so a watermark that looks
+perfectly judged on a laptop can vanish on the wall — the same reason the
+corner artwork is drawn far larger than it looks like it needs to be.
 
 ---
 
@@ -783,7 +832,7 @@ assets/
   js/orthodox-calendar.js  which Sundays fall in a fasting period
   js/signup-data.js    turns a sign-up Sheet tab into a list of Sundays
   js/signup-ui.js   signup.html itself — claiming a Sunday
-  js/liturgical-data.js  turns the Liturgical Sheet tab into today's slide
+  js/liturgical-data.js  turns the Liturgical Sheet tab into today's line
   js/qrcode.js      QR code generator (Kazuhiko Arase, MIT)
   fonts/            EB Garamond + Montserrat
   img/              parish monogram and cross

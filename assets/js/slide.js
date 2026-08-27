@@ -527,6 +527,85 @@
     return card.openCount + ' of the next ' + total + ' Sundays open';
   }
 
+  /* ------------------------------------------------------------- welcome -- */
+
+  /**
+   * The welcome band: a code, and the sentence a visitor should read before
+   * they leave.
+   *
+   * The instruction shares the title's line rather than taking one of its
+   * own. It is a band, not a card — every line it spends is a line the
+   * announcements above it do not get, and the words are what the visitor is
+   * actually meant to read.
+   */
+  function buildWelcomeBandHtml(w) {
+    return (
+      '<div class="qr__frame">' + makeQrSvg(w.url) + '</div>' +
+      '<div class="band__text">' +
+        '<p class="band__title">' + escapeHtml(w.title) +
+          '<span class="band__scan">' + escapeHtml(w.qrLabel) + '</span>' +
+        '</p>' +
+        '<p class="band__body">' + escapeHtml(w.body) + '</p>' +
+      '</div>'
+    );
+  }
+
+  /* --------------------------------------------------------- fitting: qr -- */
+
+  /**
+   * Shrink the codes until they fit the box they are standing in.
+   *
+   * WHY THIS EXISTS
+   *
+   * fitToBox below sizes the words, and has always been careful about it.
+   * Nothing ever sized the codes. They are set in `vh` — a fraction of the
+   * height of the SCREEN — while the space they actually have is the height
+   * of the stage, which is a different and smaller number the moment anything
+   * else on the screen claims height.
+   *
+   * That was survivable while the stage was very nearly the whole screen. It
+   * stopped being survivable the moment a sign-up column and a welcome band
+   * arrived: a staff directory carrying three or four codes ran them straight
+   * off the bottom of the stage and over the top of whatever was underneath,
+   * on a screen that is supposed to be the tidiest thing in the hall.
+   *
+   * So: measure, and shrink until it fits. The floor is the point below which
+   * a phone camera starts to struggle from across a table — past that there is
+   * no sense shrinking further, and `overflow: hidden` on the stage is the
+   * backstop that keeps the mess inside its own box either way.
+   */
+  const QR_FLOOR_PX = 84;
+
+  function fitQrColumn(slideEl) {
+    const qrEl = slideEl.querySelector('.slide__qr');
+    if (!qrEl) return { shrunk: false, floored: false };
+
+    const frames = Array.prototype.slice.call(qrEl.querySelectorAll('.qr__frame'));
+    const labels = Array.prototype.slice.call(qrEl.querySelectorAll('.qr__label'));
+    if (!frames.length) return { shrunk: false, floored: false };
+
+    // Overflowing its own cell, or pushing the whole slide past its box —
+    // either counts, because which one happens depends on the layout.
+    const overflows = () =>
+      qrEl.scrollHeight > qrEl.clientHeight + 1 ||
+      slideEl.scrollHeight > slideEl.clientHeight + 1;
+
+    if (!overflows()) return { shrunk: false, floored: false };
+
+    let width = frames[0].getBoundingClientRect().width;
+    let guard = 0;
+
+    while (overflows() && width > QR_FLOOR_PX && guard++ < 30) {
+      width = Math.max(QR_FLOOR_PX, width * 0.93);
+      frames.forEach(f => { f.style.width = width + 'px'; });
+      // The label is set to the frame's width in CSS; keep them together or a
+      // long label starts setting the column's width on its own.
+      labels.forEach(l => { l.style.maxWidth = width + 'px'; });
+    }
+
+    return { shrunk: true, floored: overflows() };
+  }
+
   /* ------------------------------------------------------------ fitting -- */
 
   /**
@@ -665,6 +744,8 @@
   global.Slide = {
     buildSlideEl,
     buildSignupCardEl,
+    fitQrColumn,
+    buildWelcomeBandHtml,
     fitToBox,
     makeQrSvg,
     qrDensity,
