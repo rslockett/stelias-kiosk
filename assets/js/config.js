@@ -138,6 +138,10 @@ window.KIOSK_CONFIG = {
      This slide is the parish saying hello when nobody happens to be free: the
      icon, a short greeting, and a code they can scan to leave their name.
 
+     It points at the Inquirers Table rather than at a person. There are no
+     name tags to look for, and the priest cannot be standing there every
+     week — a table that is always in the same place can be.
+
      formUrl is the parish's welcome form. Put the real address here, not a
      shortened one — see the note above the sign-ups.
 
@@ -154,10 +158,10 @@ window.KIOSK_CONFIG = {
   -------------------------------------------------------------------------- */
 
   welcome: {
-    title: 'Welcome',
+    title: 'Welcome Visitors',
     body: 'If this is your first time with us, we are glad you are here.\n\n' +
-      'Please stay for coffee, and introduce yourself to Fr. Elias or to ' +
-      'anyone wearing a name tag.',
+      'Please stop by the Inquirers Table before you go. Someone is there to ' +
+      'welcome you, answer any questions, and get to know you.',
     image: 'assets/img/welcome-prophet-elias.png',
     formUrl: 'https://steliasaustin.breezechms.com/form/welcome',
     qrLabel: 'Welcome Form',
