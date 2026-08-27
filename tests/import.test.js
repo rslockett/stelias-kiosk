@@ -302,9 +302,6 @@
         link: 'https://example.org', linkLabel: 'Scan' } },
     { what: 'words, picture and a code', slide: { title: 'With a photo', body: 'All three.',
         link: 'https://example.org', linkLabel: 'Scan', image: 'assets/img/photo.jpg' } },
-    { what: 'a sign-up list', slide: { kind: 'signup', title: 'Coffee Hour Sign-Up',
-        subtitle: 'Hosts needed', entries: [{ label: 'Sunday, Sept 6', name: '' }],
-        qrUrl: 'https://example.org', qrLabel: 'Scan' } },
   ];
 
   test('every kind of slide gets the ornament under its title', () => {
@@ -317,6 +314,63 @@
       assert(el.querySelectorAll('.rule__cross').length === 1,
         c.what + ': the cross is missing from the ornament');
     });
+  });
+
+  /* ------------------------------------------------------- the sign-up rail -- */
+
+  /*
+   * Coffee Hour and Holy Bread do not rotate. They stand in a column of their
+   * own, and the whole point of that column is that somebody can see who has
+   * which Sunday, and which are still free, at any moment rather than once
+   * every two minutes. These check that the column actually says both.
+   */
+
+  const aCard = (over) => Object.assign({
+    kind: 'signup',
+    title: 'Coffee Hour',
+    entries: [
+      { shortLabel: 'Aug 30', label: 'Sunday, August 30', filled: true, name: 'Marina Haddad' },
+      { shortLabel: 'Sep 6', label: 'Sunday, September 6', filled: false, name: null },
+      { shortLabel: 'Sep 13', label: 'Sunday, September 13', filled: false, name: null,
+        fastName: 'Fast' },
+    ],
+    openCount: 2,
+    qrUrl: 'https://example.org/signup',
+    qrLabel: 'Scan to host',
+  }, over || {});
+
+  test('a sign-up card names who has each Sunday and marks the open ones', () => {
+    const el = global.Slide.buildSignupCardEl(aCard());
+    const rows = el.querySelectorAll('.card__row');
+    assert(rows.length === 3, 'every Sunday should get a row, got ' + rows.length);
+
+    assert(rows[0].classList.contains('is-filled'), 'a claimed Sunday reads as filled');
+    assert(/Marina Haddad/.test(rows[0].textContent),
+      'the person who signed up should be named on the row');
+
+    assert(rows[1].classList.contains('is-open'), 'an unclaimed Sunday reads as open');
+    assert(/Open/.test(rows[1].textContent), 'an unclaimed Sunday should say so');
+
+    assert(el.querySelector('.card__fast'), 'the fasting badge went missing');
+    assert(el.querySelector('.qr__frame svg'), 'the card should carry a scannable code');
+  });
+
+  test('a sign-up card uses the short date, which is all the row has room for', () => {
+    const el = global.Slide.buildSignupCardEl(aCard());
+    const first = el.querySelector('.card__date').textContent;
+    assert(/Aug 30/.test(first), 'expected the short date, got: ' + first);
+    assert(!/Sunday/.test(first),
+      'every date in this list is a Sunday — the word only costs the name room');
+  });
+
+  test('a full sign-up sheet says so in words', () => {
+    const full = global.Slide.buildSignupCardEl(aCard({ openCount: 0 }));
+    assert(/spoken for/.test(full.querySelector('.card__count').textContent),
+      '"0 of the next 3 Sundays open" is not a sentence anybody should have to parse');
+
+    const some = global.Slide.buildSignupCardEl(aCard());
+    assert(/2 of the next 3/.test(some.querySelector('.card__count').textContent),
+      'the count line should say how many Sundays are going begging');
   });
 
   // A photograph gets a white mount and a drop shadow, which is what makes it

@@ -377,8 +377,6 @@
    * Layout is chosen from what the row actually has in it.
    */
   function buildSlideEl(slide) {
-    if (slide.kind === 'signup') return buildSignupSlideEl(slide);
-
     const links = parseLinkPairs(slide.link, slide.linkLabel);
     const hasQr = links.length > 0;
     const hasImg = !!slide.image;
@@ -465,60 +463,68 @@
     else img.addEventListener('error', drop, { once: true });
   }
 
-  /* ------------------------------------------------------------ signup -- */
+  /* -------------------------------------------------------- signup card -- */
 
   /**
-   * Coffee Hour / Holy Bread sign-up slide: a fixed list of upcoming Sundays
-   * rather than prose, so it skips the shrink-to-fit binary search entirely
-   * — the row count is already capped by `signupWeeksAhead` in config.js, and
-   * each row is sized in vh like everything else here.
+   * One sign-up (Coffee Hour or Holy Bread) as it stands in the rail down the
+   * right-hand side of the screen — permanently, rather than taking a turn in
+   * the rotation.
+   *
+   * The code sits beside the title rather than under the list, which is a
+   * height decision and not a stylistic one: two of these cards, each six
+   * Sundays deep, only fit the column at all with the header laid out this
+   * way. See the note above .rail in kiosk.css before rearranging it.
    */
-  function buildSignupSlideEl(slide) {
-    const hasImg = !!slide.image;
-    const el = document.createElement('article');
-    el.className = 'slide slide--signup' + (hasImg ? ' has-image' : '');
+  function buildSignupCardEl(card) {
+    const el = document.createElement('section');
+    el.className = 'card';
 
-    const rowsHtml = slide.entries.map(entry => {
+    const rowsHtml = card.entries.map(entry => {
       const fastBadge = entry.fastName
-        ? '<span class="signup__fast">' + escapeHtml(entry.fastName) + '</span>'
+        ? '<span class="card__fast">' + escapeHtml(entry.fastName) + '</span>'
         : '';
       const status = entry.filled
-        ? '<span class="signup__name">' + escapeHtml(entry.name) + '</span>'
-        : '<span class="signup__open">Open — scan to sign up</span>';
+        ? '<span class="card__name">' + escapeHtml(entry.name) + '</span>'
+        : '<span class="card__open">Open</span>';
 
       return (
-        '<li class="signup__row' + (entry.filled ? ' is-filled' : ' is-open') + '">' +
-          '<span class="signup__date">' + escapeHtml(entry.label) + fastBadge + '</span>' +
+        '<li class="card__row' + (entry.filled ? ' is-filled' : ' is-open') + '">' +
+          '<span class="card__date">' +
+            escapeHtml(entry.shortLabel || entry.label) + fastBadge +
+          '</span>' +
           status +
         '</li>'
       );
     }).join('');
 
-    const qrHtml = slide.qrUrl
-      ? '<aside class="slide__qr"><div class="qr">' +
-          '<div class="qr__frame">' + makeQrSvg(slide.qrUrl) + '</div>' +
-          '<p class="qr__label">' + escapeHtml(slide.qrLabel || CFG.defaultQrLabel) + '</p>' +
-        '</div></aside>'
-      : '';
-
-    const imgHtml = hasImg
-      ? '<div class="slide__image"><img src="' + escapeHtml(slide.image) +
-        '" alt="" loading="eager"></div>'
-      : '';
+    const qrHtml = card.qrUrl
+      ? '<div class="qr__frame">' + makeQrSvg(card.qrUrl) + '</div>' : '';
 
     el.innerHTML =
-      imgHtml +
-      '<div class="slide__main">' +
-        '<div class="slide__fit">' +
-          '<h2 class="slide__title">' + escapeHtml(slide.title) + '</h2>' +
-          ruleSvg() +
-          (slide.subtitle ? '<p class="signup__subtitle">' + escapeHtml(slide.subtitle) + '</p>' : '') +
-          '<ul class="signup__list">' + rowsHtml + '</ul>' +
+      '<div class="card__head">' +
+        qrHtml +
+        '<div class="card__headtext">' +
+          '<h3 class="card__title">' + escapeHtml(card.title) + '</h3>' +
+          '<p class="card__count">' + escapeHtml(countLine(card)) + '</p>' +
+          (card.qrUrl
+            ? '<p class="card__scan">' + escapeHtml(card.qrLabel || CFG.defaultQrLabel) + '</p>'
+            : '') +
         '</div>' +
       '</div>' +
-      qrHtml;
+      '<ul class="card__list">' + rowsHtml + '</ul>';
 
     return el;
+  }
+
+  /**
+   * The line under the title. A full sign-up sheet says so in words — "0 of
+   * the next 6 Sundays open" is a sentence nobody should have to parse to
+   * learn that there is nothing to do here.
+   */
+  function countLine(card) {
+    const total = card.entries.length;
+    if (!card.openCount) return 'Every Sunday is spoken for — thank you';
+    return card.openCount + ' of the next ' + total + ' Sundays open';
   }
 
   /* ------------------------------------------------------------ fitting -- */
@@ -658,7 +664,7 @@
 
   global.Slide = {
     buildSlideEl,
-    buildSignupSlideEl,
+    buildSignupCardEl,
     fitToBox,
     makeQrSvg,
     qrDensity,

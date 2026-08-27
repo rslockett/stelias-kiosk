@@ -66,6 +66,11 @@
           String(date.getMonth() + 1).padStart(2, '0') + '-' +
           String(date.getDate()).padStart(2, '0'),
         label: date.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' }),
+        // The same Sunday, short enough for the kiosk's sign-up column, where
+        // the date shares a narrow row with somebody's name. "Sunday" is
+        // dropped rather than abbreviated: every date in these lists is a
+        // Sunday, so the word distinguishes nothing and costs the name room.
+        shortLabel: date.toLocaleDateString([], { month: 'short', day: 'numeric' }),
         filled: !!name,
         name,
         fastName,
@@ -93,14 +98,14 @@
   }
 
   /**
-   * A Deck-like source for one sign-up (Coffee Hour or Holy Bread), turning
-   * the tab's CSV into a single "signup" slide for the kiosk. Mirrors
-   * Deck.createDeckSource's polling and offline-cache behaviour so a wifi
-   * drop degrades the same way an announcements outage does: keep showing
-   * the last thing that worked.
+   * A source for one sign-up (Coffee Hour or Holy Bread), turning the tab's
+   * CSV into the card that stands permanently in the kiosk's right-hand
+   * column. Mirrors Deck.createDeckSource's polling and offline-cache
+   * behaviour so a wifi drop degrades the same way an announcements outage
+   * does: keep showing the last thing that worked.
    *
-   * Emits 'slide' with either a slide object, or null if `csvUrl` is blank
-   * (this sign-up isn't configured — leave it off the TV).
+   * Emits either a card object, or null if `csvUrl` is blank (this sign-up
+   * isn't configured — leave it off the screen).
    */
   function createKioskSource(opts) {
     const listeners = [];
@@ -114,23 +119,24 @@
       };
     }
 
-    // However many weeks signup.html is configured to list, the TV only has
-    // room for so many rows before they either overflow the slide (nothing
-    // shrinks a fixed list the way prose shrinks) or turn to noise from
-    // across the hall. signup.html shows the full list regardless — this
-    // cap is a kiosk-display concern only.
-    const KIOSK_ROW_CAP = 6;
+    // However many weeks signup.html is configured to list, the column beside
+    // the announcements has room for exactly this many. Two cards, each six
+    // Sundays deep and each with a code big enough to scan, come to within a
+    // few pixels of the full height of that column at 1080p — a seventh row
+    // does not fit without shrinking the type below what a phone-holding
+    // adult can comfortably read. signup.html shows the full list regardless;
+    // this cap is a kiosk-display concern only.
+    const RAIL_ROW_CAP = 6;
 
-    function toSlide(rows) {
+    function toCard(rows) {
       const entries = buildSlots(rows, global.KIOSK_CONFIG.signupWeeksAhead || 6, {
         markFasting: !!opts.markFasting,
-      }).slice(0, KIOSK_ROW_CAP);
+      }).slice(0, RAIL_ROW_CAP);
       return {
         kind: 'signup',
         title: opts.title,
-        subtitle: opts.subtitle,
         entries,
-        image: opts.image,
+        openCount: entries.filter(e => !e.filled).length,
         qrUrl: opts.qrUrl,
         qrLabel: opts.qrLabel,
       };
@@ -148,14 +154,14 @@
         const h = global.Deck.hash(text);
         if (h === lastHash) return;
         lastHash = h;
-        listeners.forEach(fn => fn(toSlide(global.CSV.parseObjects(text))));
+        listeners.forEach(fn => fn(toCard(global.CSV.parseObjects(text))));
       } catch (err) {
         console.warn('[kiosk] could not reach the ' + opts.title + ' sheet:', err.message);
         if (lastHash === null) {
           const cached = loadCache(opts.kind);
           if (cached && cached.csv) {
             lastHash = global.Deck.hash(cached.csv);
-            listeners.forEach(fn => fn(toSlide(global.CSV.parseObjects(cached.csv))));
+            listeners.forEach(fn => fn(toCard(global.CSV.parseObjects(cached.csv))));
           }
         }
       }

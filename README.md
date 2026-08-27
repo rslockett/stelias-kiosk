@@ -457,9 +457,19 @@ going blank.
 
 ## Coffee Hour and Holy Bread sign-ups
 
-Two more slides on the TV, built the same way as everything else here: a
-Sheet tab is the one true copy, a page reads it, and a QR code is how people
-get there. There's no separate service to pay for or manage — the sign-up
+These two don't rotate. They stand in a column of their own down the
+right-hand side of the screen, permanently — every upcoming Sunday, who has
+it, which are still open, and a code to scan — while the announcements come
+and go on the left.
+
+That's deliberate. An announcement is read now and acted on later; a sign-up
+is acted on there and then, by somebody holding a phone who has just decided
+to host a Sunday. When these were slides in the rotation, that person had to
+wait out the rest of the week's news before they could scan anything, which
+is how a sign-up sheet goes unfilled.
+
+Otherwise they're built the same way as everything else here: a Sheet tab is
+the one true copy, a page reads it, and a QR code is how people get there. There's no separate service to pay for or manage — the sign-up
 page (`signup.html`) is part of this same site, and it writes back to the
 Sheet through the same Apps Script that "Make it live" already uses.
 
@@ -501,7 +511,9 @@ because sign-ups are somehow slower.
    put that here instead — the kiosk only ever displays whatever URL is
    entered in these two fields.
 
-Leave either pair blank to leave that sign-up off the TV entirely.
+Leave either pair blank to leave that sign-up off the TV entirely — the
+column then shows just the one, with a larger code. Leave both blank and the
+column disappears, and announcements have the full width of the screen back.
 
 ### Fasting Sundays
 
@@ -520,9 +532,17 @@ Old Calendar.
 
 However many weeks ahead `signupWeeksAhead` in config.js is set to show —
 useful for the sign-up page itself, where people might want to plan further
-out — the television only ever displays the first 6, because a fixed list of
-rows can't shrink to fit the way announcement text does. Six is comfortably
-what the slide has room for. `signup.html` always shows the full list.
+out — the television only ever displays the first 6. Two sign-ups, six
+Sundays each, and a code big enough to scan come to within a few pixels of
+the full height of that column at 1080p; a seventh row only fits by shrinking
+the type past what somebody holding a phone can read. `signup.html` always
+shows the full list.
+
+The dates in that column are shortened — "Sep 14", not "Sunday, September
+14". Every date in these lists is a Sunday, so the word distinguishes
+nothing, and it costs the room a long name needs. A name too long for its row
+is trimmed with an ellipsis rather than pushing the date off the end; if
+that starts happening often, shorten the names in the Sheet.
 
 ---
 

@@ -12,6 +12,8 @@
   const CFG = global.KIOSK_CONFIG;
 
   const stage = document.getElementById('stage');
+  const stagewrapEl = document.getElementById('stagewrap');
+  const railEl = document.getElementById('rail');
   const dotsEl = document.getElementById('dots');
   const progressEl = document.getElementById('progress');
   const clockTimeEl = document.getElementById('clock-time');
@@ -27,15 +29,15 @@
   let timer = null;
   let paused = false;
 
-  // The announcement deck, the day's saints slide, and the two sign-up
-  // slides are four independent, independently-polled sources. Whichever
-  // changes, the merged deck is rebuilt and handed to onDeck exactly as if
-  // it were one source — today's saints lead the rotation, sign-ups ride
-  // at the end, after the announcements.
+  // The announcement deck and the day's saints slide are two independent,
+  // independently-polled sources. Whichever changes, the merged deck is
+  // rebuilt and handed to onDeck exactly as if it were one source — today's
+  // saints lead the rotation, the announcements follow.
+  //
+  // The two sign-ups are polled the same way but do not appear here at all.
+  // They live in the rail instead — see onSignupCard.
   let announcementSlides = [];
   let liturgicalSlide = null;
-  let coffeeSlide = null;
-  let breadSlide = null;
 
   /**
    * The welcome slide, built once from config.js. Unlike everything else on
@@ -58,7 +60,7 @@
   function mergedDeck() {
     return (liturgicalSlide ? [liturgicalSlide] : [])
       .concat(welcomeSlide ? [welcomeSlide] : [])
-      .concat(announcementSlides, coffeeSlide ? [coffeeSlide] : [], breadSlide ? [breadSlide] : []);
+      .concat(announcementSlides);
   }
 
   /* ---------------------------------------------------------------- clock -- */
@@ -103,11 +105,6 @@
 
   /** Longer announcements get more time on screen. */
   function dwellMs(slide) {
-    if (slide.kind === 'signup') {
-      // No prose to size by — a row per Sunday takes roughly as long to read
-      // as a sentence does.
-      return Math.round((baseSlideSeconds() + slide.entries.length * 1.4) * 1000);
-    }
     const chars = (slide.title || '').length + (slide.body || '').length;
     const extra = (CFG.extraSecondsPerHundredChars || 0) * (chars / 100);
     return Math.round((baseSlideSeconds() + extra) * 1000);
@@ -139,19 +136,15 @@
     el.classList.add('is-entering');
     stage.appendChild(el);
 
-    // Sign-up slides are a fixed list of rows, sized entirely in CSS —
-    // there's no prose here for the shrink-to-fit binary search to measure.
-    if (slide.kind !== 'signup') {
-      // Element must be in the document (and laid out) before we can measure it.
-      const main = el.querySelector('.slide__main');
-      const fit = el.querySelector('.slide__fit');
-      const result = global.Slide.fitToBox(main, fit, {
-        minPx: CFG.minBodyPx,
-        maxPx: CFG.maxBodyPx,
-      });
-      if (result.trimmed) {
-        console.warn('[kiosk] too long for one slide, trimmed:', slide.title);
-      }
+    // Element must be in the document (and laid out) before we can measure it.
+    const main = el.querySelector('.slide__main');
+    const fit = el.querySelector('.slide__fit');
+    const result = global.Slide.fitToBox(main, fit, {
+      minPx: CFG.minBodyPx,
+      maxPx: CFG.maxBodyPx,
+    });
+    if (result.trimmed) {
+      console.warn('[kiosk] too long for one slide, trimmed:', slide.title);
     }
 
     // Force a reflow so the browser treats the class change below as a
@@ -219,6 +212,10 @@
   }
 
   function applyDeck(slides) {
+    // Nothing goes on screen until every source has had its say — see
+    // "the first slide" below.
+    if (holdingFirstSlide) return;
+
     if (!currentEl) {
       deck = slides;
       updateEmptyState();
@@ -227,6 +224,66 @@
     }
     // Already showing something — queue it for the next transition.
     pendingDeck = slides;
+  }
+
+  /* --------------------------------------------------- the first slide -- */
+
+  /*
+   * Why the screen waits a moment before showing anything at all.
+   *
+   * The four sources answer independently, and at start-up they land seconds
+   * apart — the sign-ups usually first, the announcements last, because they
+   * are the biggest read and they queue behind the fonts. Starting the
+   * rotation on whichever answered first meant the hall watched a two- or
+   * three-slide deck go round at full speed: welcome, a sign-up, welcome
+   * again, the day's saints, welcome a third time — every slide that had
+   * arrived repeating every thirty seconds until the rest caught up.
+   *
+   * Keeping our place in the deck (see Deck.keepPosition) fixed the jumping.
+   * It cannot fix this, because there is nothing wrong with the position — a
+   * four-slide deck played in perfect order still comes round four times as
+   * often as a sixteen-slide one, and what somebody standing in the hall sees
+   * is the same slide again.
+   *
+   * So: hold the first slide until all four have reported, or until the grace
+   * period runs out, whichever comes first. The rotation then starts once, on
+   * the whole deck, and every slide after that is genuinely the next one.
+   *
+   * The wait is invisible — the masthead and clock are already painted, and
+   * this is a screen that has just been switched on. A source that is broken
+   * or unreachable never reports at all, which is exactly what the grace
+   * period is for: the hall gets whatever did arrive rather than a screen
+   * that waits forever for a Sheet nobody published.
+   */
+
+  const FIRST_SLIDE_GRACE_MS = 10 * 1000;
+
+  let holdingFirstSlide = true;
+  let awaitedSources = null;
+
+  function awaitSources(names) {
+    awaitedSources = new Set(names);
+    setTimeout(() => {
+      if (holdingFirstSlide && awaitedSources.size) {
+        console.warn('[kiosk] starting without ' +
+          Array.from(awaitedSources).join(', ') + ' — nothing heard back in ' +
+          Math.round(FIRST_SLIDE_GRACE_MS / 1000) + 's');
+        startRotation();
+      }
+    }, FIRST_SLIDE_GRACE_MS);
+  }
+
+  /** One source has reported — its content, or that it has none. */
+  function sourceReported(name) {
+    if (!holdingFirstSlide || !awaitedSources) return;
+    awaitedSources.delete(name);
+    if (awaitedSources.size === 0) startRotation();
+  }
+
+  function startRotation() {
+    if (!holdingFirstSlide) return;
+    holdingFirstSlide = false;
+    applyDeck(mergedDeck());
   }
 
   function onDeck(slides, meta) {
@@ -241,6 +298,7 @@
     }
     renderFreshness();
     applyDeck(mergedDeck());
+    sourceReported('the announcements');
   }
 
   /* ----------------------------------------------------------- freshness -- */
@@ -303,16 +361,64 @@
     el.hidden = !parts.length;
   }
 
-  function onSignupSlide(kind, slide) {
-    console.log('[kiosk] ' + kind + ' sign-up updated:', slide ? slide.entries.length + ' Sundays' : 'not configured');
-    if (kind === 'coffee') coffeeSlide = slide; else breadSlide = slide;
-    applyDeck(mergedDeck());
+  /* ------------------------------------------------------------------ rail -- */
+
+  /*
+   * The two sign-ups, standing still beside the rotation.
+   *
+   * They used to ride at the end of the deck, which made somebody who had
+   * just decided to host a Sunday wait out the rest of the week's news before
+   * they could scan anything. A sign-up is acted on there and then, by a
+   * person holding a phone; an announcement is read now and acted on later.
+   * Only one of those can afford to be on a two-minute cycle.
+   *
+   * They are still awaited before the first slide goes up, though they no
+   * longer put anything in the deck. The rail takes a quarter of the width,
+   * and an announcement is fitted to the width it is given — so the rail has
+   * to be there before the first slide is measured, or the first slide is
+   * sized for a stage it is about to stop having.
+   *
+   * Redrawn whole on every change rather than patched. A card is a title, a
+   * code and six rows; it changes when somebody claims a Sunday, which is a
+   * few times a week, not a few times a minute.
+   */
+
+  const railCards = { coffee: null, bread: null };
+
+  function onSignupCard(kind, card) {
+    console.log('[kiosk] ' + kind + ' sign-up updated:',
+      card ? card.entries.length + ' Sundays, ' + card.openCount + ' open' : 'not configured');
+    railCards[kind] = card;
+    renderRail();
+    sourceReported(kind === 'coffee' ? 'the coffee sign-up' : 'the bread sign-up');
+  }
+
+  function renderRail() {
+    if (!railEl || !stagewrapEl) return;
+
+    // Coffee Hour above Holy Bread, always in that order, so the rail doesn't
+    // reshuffle itself depending on which of the two answered first.
+    const cards = [railCards.coffee, railCards.bread].filter(Boolean);
+
+    railEl.hidden = cards.length === 0;
+    // Neither one configured: the column goes away entirely and the
+    // announcements have the full width back, exactly as they used to.
+    stagewrapEl.classList.toggle('has-rail', cards.length > 0);
+    railEl.classList.toggle('rail--one', cards.length === 1);
+
+    railEl.innerHTML = '';
+    cards.forEach(card => railEl.appendChild(global.Slide.buildSignupCardEl(card)));
+
+    // The stage may have just changed width. Whatever is on it was fitted to
+    // the old one.
+    if (!holdingFirstSlide && deck.length && currentEl) show(index);
   }
 
   function onLiturgicalSlide(slide) {
     console.log('[kiosk] liturgical updated:', slide ? slide.title : 'not configured');
     liturgicalSlide = slide;
     applyDeck(mergedDeck());
+    sourceReported("the day's saints");
   }
 
   function onStatus(status) {
@@ -547,6 +653,13 @@
       try { await document.fonts.ready; } catch (e) { /* proceed anyway */ }
     }
 
+    awaitSources([
+      "the day's saints",
+      'the coffee sign-up',
+      'the bread sign-up',
+      'the announcements',
+    ]);
+
     global.liturgicalSource = global.LiturgicalData
       .createLiturgicalSource(CFG.liturgicalCsvUrl)
       .on(onLiturgicalSlide)
@@ -554,25 +667,21 @@
 
     global.coffeeSignupSource = global.SignupData.createKioskSource({
       kind: 'coffee',
-      title: 'Coffee Hour Sign-Up',
-      subtitle: 'Hosts needed — sign up for a Sunday',
+      title: 'Coffee Hour',
       csvUrl: CFG.coffeeHour.csvUrl,
-      image: CFG.coffeeHour.image,
       qrUrl: CFG.coffeeHour.signupUrl,
-      qrLabel: 'Scan to sign up to host',
+      qrLabel: 'Scan to host',
       markFasting: true,
-    }).on(slide => onSignupSlide('coffee', slide)).start();
+    }).on(card => onSignupCard('coffee', card)).start();
 
     global.breadSignupSource = global.SignupData.createKioskSource({
       kind: 'bread',
-      title: 'Holy Bread Sign-Up',
-      subtitle: 'Bake the prosphora for a Sunday Liturgy',
+      title: 'Holy Bread',
       csvUrl: CFG.holyBread.csvUrl,
-      image: CFG.holyBread.image,
       qrUrl: CFG.holyBread.signupUrl,
-      qrLabel: 'Scan to sign up to bake',
+      qrLabel: 'Scan to bake',
       markFasting: false,
-    }).on(slide => onSignupSlide('bread', slide)).start();
+    }).on(card => onSignupCard('bread', card)).start();
 
     global.kioskSource = global.Deck
       .createDeckSource(CFG.sheetCsvUrl)

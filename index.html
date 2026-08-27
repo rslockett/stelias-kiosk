@@ -10,10 +10,10 @@
      against version.json every few minutes and reloads itself, between
      slides, when the two differ — so a fix pushed on Tuesday reaches the hall
      on Tuesday, rather than whenever the Pi next happens to restart. -->
-<meta name="kiosk-version" content="202608262313">
+<meta name="kiosk-version" content="202608262354">
 
-<link rel="stylesheet" href="assets/css/fonts.css?v=202608262313">
-<link rel="stylesheet" href="assets/css/kiosk.css?v=202608262313">
+<link rel="stylesheet" href="assets/css/fonts.css?v=202608262354">
+<link rel="stylesheet" href="assets/css/kiosk.css?v=202608262354">
 <link rel="icon" href="assets/img/logo-se.png">
 </head>
 <body>
@@ -36,17 +36,33 @@
       </div>
     </header>
 
-    <main class="stage" id="stage" aria-live="polite"></main>
+    <!-- The announcements rotate on the left; the sign-ups stand still on the
+         right. Coffee Hour and Holy Bread used to ride at the end of the
+         rotation, which meant somebody who decided to host had to wait for
+         their slide to come round again before they could scan anything.
+         They are a standing invitation, not an announcement, so they are
+         given a column of their own and never leave it. -->
+    <div class="stagewrap" id="stagewrap">
 
-    <!-- Shown only when the Sheet has no announcements to display today. -->
-    <section class="empty" id="empty" hidden>
-      <img class="empty__mark" src="assets/img/cross-byzantine.png" alt="">
-      <h2 class="empty__title">Welcome</h2>
-      <p class="empty__text">
-        There are no announcements posted at the moment.<br>
-        Please enjoy coffee hour.
-      </p>
-    </section>
+      <div class="stagecol">
+        <main class="stage" id="stage" aria-live="polite"></main>
+
+        <!-- Shown only when the Sheet has no announcements to display today. -->
+        <section class="empty" id="empty" hidden>
+          <img class="empty__mark" src="assets/img/cross-byzantine.png" alt="">
+          <h2 class="empty__title">Welcome</h2>
+          <p class="empty__text">
+            There are no announcements posted at the moment.<br>
+            Please enjoy coffee hour.
+          </p>
+        </section>
+      </div>
+
+      <!-- Filled by app.js from the same two sign-up sources as before.
+           Stays hidden if neither is configured. -->
+      <aside class="rail" id="rail" hidden></aside>
+
+    </div>
 
     <footer class="bottombar">
       <div class="dots" id="dots"></div>
@@ -67,15 +83,15 @@
     <div class="progress"><span class="progress__bar" id="progress"></span></div>
   </div>
 
-  <script src="assets/js/config.js?v=202608262313"></script>
-  <script src="assets/js/qrcode.js?v=202608262313"></script>
-  <script src="assets/js/csv.js?v=202608262313"></script>
-  <script src="assets/js/deck.js?v=202608262313"></script>
-  <script src="assets/js/orthodox-calendar.js?v=202608262313"></script>
-  <script src="assets/js/signup-data.js?v=202608262313"></script>
-  <script src="assets/js/liturgical-data.js?v=202608262313"></script>
-  <script src="assets/js/weather.js?v=202608262313"></script>
-  <script src="assets/js/slide.js?v=202608262313"></script>
-  <script src="assets/js/app.js?v=202608262313"></script>
+  <script src="assets/js/config.js?v=202608262354"></script>
+  <script src="assets/js/qrcode.js?v=202608262354"></script>
+  <script src="assets/js/csv.js?v=202608262354"></script>
+  <script src="assets/js/deck.js?v=202608262354"></script>
+  <script src="assets/js/orthodox-calendar.js?v=202608262354"></script>
+  <script src="assets/js/signup-data.js?v=202608262354"></script>
+  <script src="assets/js/liturgical-data.js?v=202608262354"></script>
+  <script src="assets/js/weather.js?v=202608262354"></script>
+  <script src="assets/js/slide.js?v=202608262354"></script>
+  <script src="assets/js/app.js?v=202608262354"></script>
 </body>
 </html>

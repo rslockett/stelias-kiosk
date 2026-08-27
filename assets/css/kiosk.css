@@ -214,6 +214,30 @@ body::after {
 
 /* ---------------------------------------------------------------- stage -- */
 
+/* The stage and the sign-up rail side by side. Without a rail this collapses
+   to a single column and everything below behaves exactly as it did when the
+   stage was the only thing here. */
+.stagewrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+}
+
+.stagewrap.has-rail {
+  grid-template-columns: 1fr 26%;
+  gap: 0 2.4vw;
+}
+
+/* The stage and the empty-state notice share the left column and take turns,
+   so the rail keeps its place beside either one. */
+.stagecol {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
 .stage {
   position: relative;
   flex: 1 1 auto;
@@ -259,6 +283,14 @@ body::after {
   grid-template-rows: 1fr auto;
 }
 .slide--image .qr__frame { width: min(27vh, 18vw); }
+
+/* With the rail taking a quarter of the width, the same proportions read as
+   overbearing — a 27vh code beside a stage that is no longer full width is
+   the largest thing on the screen. Scoped to .has-rail so a parish with no
+   sign-ups configured keeps the roomier original. */
+.has-rail .slide--image { grid-template-columns: 1fr 30%; }
+.has-rail .slide--image .qr__frame { width: min(21vh, 13vw); }
+.has-rail .slide--image .qr__label { max-width: min(21vh, 13vw); font-size: 1.6vh; }
 .slide--image .slide__main  { grid-column: 1; grid-row: 1 / 3; }
 .slide--image .slide__image { grid-column: 2; grid-row: 1; }
 .slide--image .slide__qr    { grid-column: 2; grid-row: 2; }
@@ -448,91 +480,173 @@ body::after {
   filter: drop-shadow(0 0.8vh 1.6vh rgba(54, 46, 48, 0.18));
 }
 
-/* --------------------------------------------------------------- signup -- */
+/* ----------------------------------------------------------------- rail -- */
 
-.slide--signup { grid-template-columns: 1fr auto; }
+/* Coffee Hour and Holy Bread, permanently on screen beside the rotation.
+   ----------------------------------------------------------------------------
+   These two are not announcements. An announcement is read once and acted on
+   later; a sign-up is acted on there and then, by somebody holding a phone who
+   has just decided to host a Sunday. Making that person wait two minutes for a
+   slide to come back round is how a sign-up sheet goes unfilled.
 
-/* With a photo, the layout matches an announcement's own image layout —
-   words on the left, photo above the QR code on the right — reusing
-   .slide__image and .slide__qr exactly as that layout already styles them. */
-.slide--signup.has-image {
-  grid-template-columns: 1fr 32%;
-  grid-template-rows: 1fr auto;
+   Every Sunday the slide used to list is still listed here, with who has it
+   and which are open — the rail replaces those slides rather than teasing
+   them, which is why they no longer ride in the deck at all (see app.js).
+
+   The height budget is the whole design constraint. Two cards, each with six
+   Sundays and a scannable code, come to within a few pixels of the rail's
+   full height at 1080p. Stacking the code under the list rather than beside
+   the title overflows it outright — the QR sits in the header for that reason,
+   not for looks. Any change here should be checked against a 1920x1080 window
+   with both sign-ups configured and six weeks showing. */
+.rail {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1.3vh;
+  padding-left: 2.2vw;
+  /* The frame's own hairline, continued inward — the rail reads as part of
+     the border rather than a second panel bolted onto the side. */
+  border-left: 1px solid rgba(213, 146, 11, 0.34);
 }
-.slide--signup.has-image .slide__main  { grid-column: 1; grid-row: 1 / 3; }
-.slide--signup.has-image .slide__image { grid-column: 2; grid-row: 1; }
-.slide--signup.has-image .slide__qr    { grid-column: 2; grid-row: 2; }
+.rail[hidden] { display: none; }
 
-/* Sized directly in vh rather than through the shrink-to-fit routine — a
-   fixed list of Sundays doesn't need the binary search prose gets, and
-   signupWeeksAhead keeps the row count, and so this size, sane. */
-.slide--signup .slide__fit { font-size: 4.4vh; text-align: left; }
-.slide--signup .slide__title,
-.slide--signup .slide__rule { text-align: center; margin-left: auto; margin-right: auto; }
+.card { display: flex; flex-direction: column; }
 
-.signup__subtitle {
-  margin: 0 0 0.7em;
-  text-align: center;
+/* The second card, ruled off from the first at the same weight as the rail's
+   own edge. */
+.card + .card {
+  border-top: 1px solid rgba(213, 146, 11, 0.34);
+  padding-top: 1.3vh;
+}
+
+.card__head {
+  display: flex;
+  align-items: center;
+  gap: 1.3vh;
+  margin-bottom: 1vh;
+}
+
+.card__headtext { min-width: 0; }
+
+.card__title {
+  margin: 0;
+  font-family: 'Montserrat', system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 2.4vh;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--oxblood);
+  line-height: 1.2;
+}
+
+.card__count {
+  margin: 0.5vh 0 0;
+  font-size: 1.95vh;
   font-style: italic;
-  font-size: 0.62em;
   color: var(--ink-soft);
 }
 
-.signup__list {
+/* The instruction, in the same gold small-caps the slide QR labels use. */
+.card__scan {
+  margin: 0.7vh 0 0;
+  font-family: 'Montserrat', system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 1.5vh;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--gold-deep);
+}
+
+.card__list {
   margin: 0;
   padding: 0;
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 0.5em;
+  gap: 0.3vh;
 }
 
-.signup__row {
+.card__row {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 1em;
-  padding: 0.42em 0.7em;
+  gap: 0.8em;
+  padding: 0.22em 0.7em;
   border-radius: 4px;
-  font-size: 0.62em;
+  font-size: 2vh;
+  line-height: 1.25;
 }
+.card__row.is-filled { background: rgba(213, 146, 11, 0.08); }
+.card__row.is-open   { background: rgba(11, 57, 84, 0.05); }
 
-.signup__row.is-filled { background: rgba(213, 146, 11, 0.08); }
-.signup__row.is-open   { background: rgba(11, 57, 84, 0.05); }
-
-.signup__date {
+.card__date {
   font-family: 'Montserrat', system-ui, sans-serif;
   font-weight: 600;
   color: var(--ink);
+  white-space: nowrap;
 }
 
-.signup__fast {
+/* The same badge the sign-up page uses, at rail scale. */
+.card__fast {
   display: inline-block;
-  margin-left: 0.7em;
-  padding: 0.1em 0.6em;
+  margin-left: 0.5em;
+  padding: 0.05em 0.5em;
   border-radius: 999px;
   background: var(--oxblood);
   color: var(--gold-pale);
   font-family: 'Montserrat', system-ui, sans-serif;
+  font-size: 0.68em;
   font-weight: 600;
-  font-size: 0.72em;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   vertical-align: middle;
 }
 
-.signup__name {
+/* A long name gives way rather than pushing the date off its own row. */
+.card__name {
   font-style: italic;
   color: var(--ink-soft);
+  text-align: right;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.signup__open {
+.card__open {
   font-family: 'Montserrat', system-ui, sans-serif;
   font-weight: 600;
+  font-size: 0.88em;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--gold-deep);
   white-space: nowrap;
 }
+
+/* Reuses .qr__frame from below, at the size the height budget allows. */
+.rail .qr__frame { width: 11vh; padding: 0.7vh; flex: none; }
+
+/* Only one sign-up configured — the other left blank in config.js. The height
+   the second card is not using goes to the code, which is the part somebody
+   has to read with a phone from a few feet away. With that much of it the
+   header stacks rather than sitting side by side: a 16vh code beside the
+   title leaves too little width for the words, and "Coffee Hour" broke
+   across two lines. */
+.rail--one .card__head {
+  flex-direction: column;
+  gap: 1.4vh;
+  margin-bottom: 1.6vh;
+}
+.rail--one .card__headtext { text-align: center; }
+.rail--one .qr__frame { width: 16vh; padding: 1vh; }
+.rail--one .card__title { font-size: 2.8vh; }
+.rail--one .card__count { font-size: 2.1vh; }
+.rail--one .card__scan { font-size: 1.7vh; }
+.rail--one .card__row { font-size: 2.3vh; padding: 0.32em 0.7em; }
 
 /* ------------------------------------------------------------------- qr -- */
 

@@ -106,11 +106,15 @@ window.KIOSK_CONFIG = {
      have the GitHub Pages address on the QR code, point a domain you control
      at it — the kiosk displays whatever URL is entered here.
 
-     image is optional — a photo shown on the TV slide, same as an
-     announcement's Image column. Leave it blank for a words-and-QR-only
-     slide.
+     These two do not rotate. They stand in a column of their own down the
+     right-hand side of the screen, always visible, listing every upcoming
+     Sunday with who has it and which are still open. Somebody who decides to
+     host does not have to wait for a slide to come round before they can
+     scan anything — which is the entire reason a sign-up is on the wall.
 
-     Leave a pair blank to leave that sign-up off the TV entirely.
+     Leave a pair blank to leave that sign-up off the screen entirely. Leave
+     both blank and the column disappears; the announcements then have the
+     full width back, exactly as before.
 
      Put the real address here, never a tinyurl. A QR code has no trouble with
      a long address — it just draws a slightly denser square — and a shortener
@@ -122,13 +126,11 @@ window.KIOSK_CONFIG = {
   coffeeHour: {
     csvUrl: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRKHWTgqqt76qjc_U3VU9xdNLUJpDKjnnl2o_Hm7g85vC_Zy8-Hhiir28naTV25GW98_PWvjHF26hj5/pub?gid=834317076&single=true&output=csv',
     signupUrl: 'https://rslockett.github.io/stelias-kiosk/signup.html?type=coffee',
-    image: '',
   },
 
   holyBread: {
     csvUrl: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRKHWTgqqt76qjc_U3VU9xdNLUJpDKjnnl2o_Hm7g85vC_Zy8-Hhiir28naTV25GW98_PWvjHF26hj5/pub?gid=637926506&single=true&output=csv',
     signupUrl: 'https://rslockett.github.io/stelias-kiosk/signup.html?type=bread',
-    image: '',
   },
 
   /* --------------------------------------------------------------------------
@@ -169,8 +171,10 @@ window.KIOSK_CONFIG = {
 
 
   // How many upcoming Sundays to show, both on the TV and on signup.html.
-  // (The kiosk only ever shows the first 6 of these, however high this is
-  // set — see KIOSK_ROW_CAP in signup-data.js.)
+  // (The sign-up column on the TV only ever shows the first 6 of these,
+  // however high this is set — see RAIL_ROW_CAP in signup-data.js. Six is
+  // what fits beside the announcements at 1080p, with the code still large
+  // enough to scan.)
   signupWeeksAhead: 6,
 
 
