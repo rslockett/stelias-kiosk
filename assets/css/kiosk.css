@@ -246,11 +246,19 @@ body::after {
 /* Layout 2 — words on the left, QR panel on the right. */
 .slide--qr { grid-template-columns: 1fr auto; }
 
-/* Layout 3 — words on the left, photo above the QR on the right. */
+/* Layout 3 — words on the left, photo above the QR on the right.
+
+   The column is wide enough, and the QR a little smaller here than when it
+   has the panel to itself, so that an upright picture has somewhere to be
+   tall. An icon is nearly always taller than it is wide: in a short, wide
+   box it shrinks to fit the height and leaves the width empty, which put a
+   postage-stamp saint next to a QR code twice its size. The code is still
+   the larger part of a 1920-wide screen than it looks here. */
 .slide--image {
-  grid-template-columns: 1fr 32%;
+  grid-template-columns: 1fr 34%;
   grid-template-rows: 1fr auto;
 }
+.slide--image .qr__frame { width: min(27vh, 18vw); }
 .slide--image .slide__main  { grid-column: 1; grid-row: 1 / 3; }
 .slide--image .slide__image { grid-column: 2; grid-row: 1; }
 .slide--image .slide__qr    { grid-column: 2; grid-row: 2; }
