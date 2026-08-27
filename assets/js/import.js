@@ -266,9 +266,18 @@
    * and the events as bullets is the whole difference between a list and a
    * paragraph that happens to contain times.
    */
+  // A day heading arrives wearing whatever punctuation the newsletter used to
+  // introduce what follows: "Sunday, Sept. 6 -", "Saturday:", "Friday •".
+  const DAY_TRAIL_RE = /[\s:•\-\u2013\u2014]+$/;
+
   function isDayHeading(line) {
-    const l = line.trim().replace(/[:•]\s*$/, '');
+    const l = line.trim().replace(DAY_TRAIL_RE, '');
     return l.length <= 42 && DAY_HEADING_RE.test(l);
+  }
+
+  /** The day itself, without the punctuation that led into its services. */
+  function cleanDayHeading(line) {
+    return String(line).trim().replace(DAY_TRAIL_RE, '');
   }
 
   /**
@@ -289,7 +298,7 @@
       if (!line) { out.push(''); continue; }
 
       if (isDayHeading(line)) {
-        out.push('## ' + line.replace(/[:•]\s*$/, '').trim());
+        out.push('## ' + cleanDayHeading(line));
         underDay = true;
         continue;
       }
@@ -404,6 +413,13 @@
       }).filter(Boolean);
     }
 
+    // Pasted text loses the bolding, but a day standing alone on its own line
+    // still reads as a heading here — so the week's services arrive split one
+    // day per announcement on this path too. Same fold, same reason.
+    blocks = mergeDayGroups(
+      blocks.map(b => ({ title: b.title, lines: String(b.body || '').split('\n'), links: [] }))
+    ).map(g => ({ title: g.title, body: g.lines.join('\n').trim() }));
+
     const items = blocks
       .filter(b => (b.title + b.body).trim().length > 12)   // drop scraps
       .map(b => {
@@ -460,6 +476,51 @@
   }
 
   /**
+   * Some weeks the newsletter bolds every day of the service schedule, which
+   * makes each one look like the start of its own announcement. Seven slides
+   * that each say "Tuesday" and one service time is not what anybody standing
+   * in the hall needs — the week's services are one thing, and belong on one
+   * slide that can be read at a glance.
+   *
+   * So a run of two or more day headings is folded back into a single group,
+   * with the days left as plain lines: structureSchedule further down turns
+   * them into sub-headings and bullets, the same as when the newsletter did
+   * not bold them. If a bare heading sits immediately above the run — "Service
+   * Schedule" — that is the title the parish already gave this, so use it.
+   */
+  function mergeDayGroups(groups) {
+    const out = [];
+
+    for (let i = 0; i < groups.length; i++) {
+      let end = i;
+      while (end < groups.length && isDayHeading(groups[end].title)) end++;
+      if (end - i < 2) { out.push(groups[i]); continue; }
+
+      let title = 'Services This Week';
+      const above = out[out.length - 1];
+      if (above && above.title.trim() && !above.lines.some(l => l.trim())) {
+        title = above.title;
+        out.pop();
+      }
+
+      const week = { title: title, lines: [], links: [], isSchedule: true };
+      for (let n = i; n < end; n++) {
+        const g = groups[n];
+        week.lines.push(cleanDayHeading(g.title));
+        g.lines.forEach(l => week.lines.push(l));
+        g.links.forEach(p => {
+          if (!week.links.some(x => x.url === p.url)) week.links.push(p);
+        });
+      }
+
+      out.push(week);
+      i = end - 1;
+    }
+
+    return out;
+  }
+
+  /**
    * Turn the ordered {text, bold, link} blocks from a .eml into announcements.
    * A bold block is a title; everything after it until the next bold block is
    * that announcement's body.
@@ -495,7 +556,9 @@
     }
     flush();
 
-    for (const g of groups) {
+    const merged = mergeDayGroups(groups);
+
+    for (const g of merged) {
       g.link = g.links.map(l => l.url).join('\n');
       g.linkLabel = g.links.map(l => l.label).join('\n');
       delete g.links;
@@ -507,9 +570,12 @@
     // long for a slide, look inside it for lines that read like titles and
     // break it up.
     const subdivided = [];
-    for (const g of groups) {
+    for (const g of merged) {
       const size = g.title.length + g.lines.join(' ').length;
-      if (size < 700 || g.lines.length < 3) { subdivided.push(g); continue; }
+      // A week's services is long and full of short lines, which is exactly
+      // what the sub-heading hunt below is looking for. It has already been
+      // grouped on purpose; leave it whole.
+      if (g.isSchedule || size < 700 || g.lines.length < 3) { subdivided.push(g); continue; }
 
       const cuts = [];
       for (let i = 0; i < g.lines.length; i++) {
