@@ -337,11 +337,56 @@
     };
   }
 
+  /* ------------------------------------------------- keeping your place -- */
+
+  /**
+   * Enough of a slide to recognise it again in a rebuilt deck. Not an id —
+   * nothing upstream gives these rows one — but a slide whose title and
+   * opening words are unchanged is the same slide to anybody watching.
+   */
+  function slideKey(slide) {
+    if (!slide) return '';
+    if (slide.kind === 'signup') return 'signup:' + slide.title;
+    return (slide.title || '') + '\u0000' + String(slide.body || '').slice(0, 120);
+  }
+
+  /**
+   * Where the rotation should carry on from, once the deck has been rebuilt
+   * underneath it.
+   *
+   * The screen has four independent sources — announcements, the day's saints,
+   * and the two sign-ups — and each hands over a whole rebuilt deck whenever
+   * its own content changes. At start-up all four land within a few seconds of
+   * each other. Restarting at slide 0 each time meant the first slide played,
+   * was interrupted, played again, and again: the day's saints three or four
+   * times over before the hall saw anything else, while the slides at the end
+   * waited for a cycle that kept being cut short.
+   *
+   * So find the slide that is on screen and carry on from there. If it has
+   * gone — deleted, or its date passed — hold the same position instead,
+   * clamped to however long the deck is now.
+   */
+  function keepPosition(current, newDeck, fallbackIndex) {
+    if (!newDeck || !newDeck.length) return 0;
+
+    const key = slideKey(current);
+    if (key) {
+      const found = newDeck.findIndex(s => slideKey(s) === key);
+      if (found !== -1) return found;
+    }
+
+    const n = Number(fallbackIndex);
+    if (!isFinite(n) || n < 0) return 0;
+    return Math.min(n, newDeck.length - 1);
+  }
+
   global.Deck = {
     createDeckSource,
     buildDeck,
     parseDate,
     hash,
+    slideKey,
+    keepPosition,
     // Shared so the liturgical and sign-up tabs get the same retry. They read
     // published CSVs from the same Google endpoint and hit the same
     // intermittent redirect — see the note above fetchCsv.

@@ -186,9 +186,13 @@
   function advance() {
     // A clean moment to swap in new content: between slides, not mid-slide.
     if (pendingDeck) {
+      // Carry on from where the rotation had got to, rather than jumping back
+      // to the top of the new deck — see Deck.keepPosition for why that
+      // matters more than it sounds.
+      const current = deck[index];
       deck = pendingDeck;
       pendingDeck = null;
-      index = -1; // so the ++ below lands on 0 and we restart the new deck
+      index = global.Deck.keepPosition(current, deck, index);
       updateEmptyState();
     }
     show(index + 1);

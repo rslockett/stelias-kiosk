@@ -248,6 +248,52 @@
     assert(news.include === false, 'and not go to the TV on its own');
   });
 
+  /* ------------------------------------------------- keeping your place -- */
+
+  // Four sources each rebuild the whole deck when their own content changes,
+  // and at start-up they all land within seconds of each other. Restarting the
+  // rotation at slide 0 each time played the day's saints three times over
+  // before the hall saw anything else.
+  test('a rebuilt deck carries on from the slide on screen', () => {
+    const K = global.Deck.keepPosition;
+    const s = t => ({ title: t, body: t + ' body' });
+    const a = s('Saints'), b = s('Services'), c = s('Church School'), d = s('Holy Bread');
+
+    // The day's saints arrive and are inserted at the front while "Services"
+    // is on screen. The rotation must stay on Services, not jump back.
+    assert(K(b, [a, b, c], 0) === 1,
+      'the slide on screen moved but the rotation did not follow it');
+
+    // Same deck, nothing changed: stay put.
+    assert(K(c, [a, b, c], 2) === 2, 'a no-op rebuild moved the rotation');
+
+    // The slide on screen was deleted — hold the position, clamped.
+    assert(K(s('Deleted'), [a, b], 5) === 1, 'position not clamped to the new length');
+    assert(K(s('Deleted'), [a, b, c, d], 2) === 2, 'position not held');
+
+    // Nothing to show, and nothing to divide by.
+    assert(K(a, [], 3) === 0, 'an empty deck has no position but 0');
+    assert(K(null, [a, b], 1) === 1, 'no current slide should hold the position');
+  });
+
+  test('two slides that read the same are treated as the same slide', () => {
+    const K = global.Deck.keepPosition;
+    const key = global.Deck.slideKey;
+    const a = { title: 'Holy Bread', body: 'We are always in need of holy bread.' };
+    const same = { title: 'Holy Bread', body: 'We are always in need of holy bread.' };
+    const edited = { title: 'Holy Bread', body: 'Completely different words here.' };
+
+    assert(key(a) === key(same), 'an identical slide should match itself');
+    assert(key(a) !== key(edited), 'an edited body should not match');
+
+    // A sign-up slide has no body at all — it must still be recognisable.
+    const sign = { kind: 'signup', title: 'Coffee Hour Sign-Up', entries: [1, 2] };
+    const signLater = { kind: 'signup', title: 'Coffee Hour Sign-Up', entries: [1, 2, 3] };
+    assert(key(sign) === key(signLater),
+      'a sign-up slide gaining a Sunday is still the same slide');
+    assert(K(sign, [a, signLater], 1) === 1, 'the sign-up slide lost its place');
+  });
+
   /* ------------------------------------------------ shapes, without a file -- */
 
   test('one day over one paragraph is still an ordinary announcement', () => {
