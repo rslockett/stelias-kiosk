@@ -98,6 +98,34 @@ invented.
 The Sheet is the one true copy. Not your browser, not your laptop — the Sheet.
 Everything in the editor follows from that.
 
+### How long each slide stays up
+
+In the editor's toolbar: **Each slide stays up [ 14 ] seconds**. Change it and
+press **Make it live**, the same as any other change — it counts as a change,
+shows up in the status bar, and lands on the television with everything else.
+
+It lives in the Sheet rather than in `config.js`, because the person who can
+tell the hall is being rushed is standing in the hall, not editing JavaScript.
+The Sheet grows a **Seconds Per Slide** column next to the two publish-stamp
+columns; the television reads it every couple of minutes along with the
+announcements.
+
+A few things it deliberately does:
+
+- **Longer announcements still get more time.** This is the base figure, and
+  `extraSecondsPerHundredChars` in `config.js` is added on top per slide. A
+  wordy notice was never going to be readable in the same time as three words.
+- **Nothing in the Sheet, nothing changes.** A Sheet that has never had the
+  column — or an older `Code.gs` — leaves the television on the `slideSeconds`
+  figure in `config.js`. Same for a blank cell, a word, or a zero.
+- **A typo cannot strand the hall.** Anything outside 4–120 seconds is clamped,
+  so a stray `9999` does not leave one slide up for three hours.
+- **Publishing from an older tab will not reset it.** A publish that says
+  nothing about the speed leaves whatever the Sheet already had.
+
+> The first time you change it, `Code.gs` must be the version that knows about
+> the column — redeploy it if you have not since this was added.
+
 ### The bar across the top
 
 It never stops telling you where you stand.

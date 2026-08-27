@@ -71,11 +71,16 @@ var SHEET_NAME = '';                      // blank = the first tab in the file
 
 var HEADERS = ['Show', 'Title', 'Body', 'Link', 'Link Label', 'Start', 'End', 'Image', 'Order'];
 
-// Two extra columns, written after the announcements, recording who last put
-// something on the screen and when. The television ignores columns it does not
-// recognise; the editor reads these so that everybody working on the
-// announcements can see whether somebody else got there first.
-var STAMP_HEADERS = ['Published By', 'Published At'];
+// Three extra columns, written after the announcements. Two record who last
+// put something on the screen and when; the editor reads them so everybody
+// working on the announcements can see whether somebody else got there first.
+//
+// The third is how long each slide stays up. It lives here rather than in
+// config.js because config.js is a file in a repository, and the people
+// deciding a slide is too quick to read are standing in the hall, not editing
+// JavaScript. Written by the editor, read by the television — the same route
+// the announcements themselves take.
+var STAMP_HEADERS = ['Published By', 'Published At', 'Seconds Per Slide'];
 var TOTAL_WIDTH = HEADERS.length + STAMP_HEADERS.length;
 
 // Sign-up tabs: the name here has to match the actual Sheet tab name.
@@ -124,8 +129,15 @@ function doPost(e) {
     }
 
     ensureHeaders(sheet);
+
+    // Read before replaceRows clears it: a publish that says nothing about the
+    // slide speed leaves the speed alone rather than wiping it.
+    var seconds = payload.secondsPerSlide === undefined
+      ? readSecondsPerSlide(sheet)
+      : clampSeconds(payload.secondsPerSlide);
+
     replaceRows(sheet, payload.rows);
-    stampPublisher(sheet, payload.by);
+    stampPublisher(sheet, payload.by, seconds);
 
     return jsonOut({ ok: true, rowsWritten: payload.rows.length });
   } catch (err) {
@@ -793,10 +805,31 @@ function replaceRows(sheet, rows) {
  * The name is whatever the person typed into the editor. It identifies a
  * colleague to colleagues; it is not a login and does not pretend to be.
  */
-function stampPublisher(sheet, name) {
+function stampPublisher(sheet, name, secondsPerSlide) {
   var who = String(name == null ? '' : name).slice(0, 60);
   sheet.getRange(2, HEADERS.length + 1, 1, STAMP_HEADERS.length)
-       .setValues([[who, new Date().toISOString()]]);
+       .setValues([[who, new Date().toISOString(), secondsPerSlide || '']]);
+}
+
+/**
+ * How long each slide stays up, as the Sheet currently has it.
+ *
+ * Read before the rows are cleared, so that an editor which does not know
+ * about this setting — an older browser tab, someone pasting rows in by hand —
+ * cannot silently reset the hall's reading speed just by publishing.
+ */
+function readSecondsPerSlide(sheet) {
+  if (sheet.getLastRow() < 2) return '';
+  var v = sheet.getRange(2, HEADERS.length + 3).getValue();
+  var n = Math.round(Number(v));
+  return isFinite(n) && n > 0 ? n : '';
+}
+
+/** Within the range a person can actually read a slide in. */
+function clampSeconds(v) {
+  var n = Math.round(Number(v));
+  if (!isFinite(n) || n <= 0) return '';
+  return Math.min(120, Math.max(4, n));
 }
 
 function jsonOut(obj) {

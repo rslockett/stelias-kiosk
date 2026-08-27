@@ -90,16 +90,27 @@
 
   /* ---------------------------------------------------------------- dwell -- */
 
+  /**
+   * How long a slide stays up, in seconds, before anything is added for its
+   * length. The Sheet wins when it has an opinion, because the people who can
+   * tell the hall is being rushed are standing in it — not editing config.js.
+   */
+  let publishedSlideSeconds = null;
+
+  function baseSlideSeconds() {
+    return publishedSlideSeconds != null ? publishedSlideSeconds : CFG.slideSeconds;
+  }
+
   /** Longer announcements get more time on screen. */
   function dwellMs(slide) {
     if (slide.kind === 'signup') {
       // No prose to size by — a row per Sunday takes roughly as long to read
       // as a sentence does.
-      return Math.round((CFG.slideSeconds + slide.entries.length * 1.4) * 1000);
+      return Math.round((baseSlideSeconds() + slide.entries.length * 1.4) * 1000);
     }
     const chars = (slide.title || '').length + (slide.body || '').length;
     const extra = (CFG.extraSecondsPerHundredChars || 0) * (chars / 100);
-    return Math.round((CFG.slideSeconds + extra) * 1000);
+    return Math.round((baseSlideSeconds() + extra) * 1000);
   }
 
   /* --------------------------------------------------------------- render -- */
@@ -222,6 +233,12 @@
     console.log('[kiosk] deck updated:', slides.length, 'slides from', meta.source);
     announcementSlides = slides;
     if (meta && meta.stamp) publishStamp = meta.stamp;
+    if (meta && meta.slideSeconds != null) {
+      if (meta.slideSeconds !== publishedSlideSeconds) {
+        console.log('[kiosk] each slide now stays up', meta.slideSeconds, 'seconds');
+      }
+      publishedSlideSeconds = meta.slideSeconds;
+    }
     renderFreshness();
     applyDeck(mergedDeck());
   }

@@ -179,6 +179,11 @@ window.KIOSK_CONFIG = {
   -------------------------------------------------------------------------- */
 
   // How long each announcement stays on screen, in seconds.
+  //
+  // This is the fallback. The editor has a box for it — "Each slide stays up
+  // [ ] seconds" — and what is published from there is kept in the Sheet and
+  // wins over this. The figure here is what the television uses until somebody
+  // sets one, so a fresh Sheet still has a sensible pace.
   slideSeconds: 14,
 
   // Slides with more text get extra time so people can actually finish reading.

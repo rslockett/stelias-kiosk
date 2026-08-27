@@ -70,6 +70,11 @@
   let liveSig = null;
   let liveStamp = null;       // { by, at } if the Apps Script records it
 
+  // How long each slide stays up. `live` is what the Sheet says right now,
+  // null when it says nothing; `draft` is what this editor would publish.
+  let liveSlideSeconds = null;
+  let draftSlideSeconds = CFG.slideSeconds;
+
   let selected = 0;
   let keySeq = 0;
 
@@ -179,6 +184,7 @@
         // of the announcement. Storing it would restore a stale verdict on
         // the next visit; leaving it out means every card is measured afresh.
         items: items.map(it => Object.assign({}, it, { _fit: undefined })),
+        slideSeconds: draftSlideSeconds,
         liveSig, savedAt: Date.now(),
       }));
     } catch (e) { /* storage full or disabled — the Sheet is the real copy */ }
@@ -202,7 +208,15 @@
 
   function draftSig() { return global.Live.deckSig(items); }
 
-  function isDirty() { return liveSig !== null && draftSig() !== liveSig; }
+  function speedChanged() {
+    const live = liveSlideSeconds != null ? liveSlideSeconds : CFG.slideSeconds;
+    return draftSlideSeconds !== live;
+  }
+
+  function isDirty() {
+    if (liveSig === null) return false;
+    return draftSig() !== liveSig || speedChanged();
+  }
 
   /**
    * What has changed since the Sheet was last read. Each announcement that
@@ -230,18 +244,32 @@
     return { added, edited, removed, reordered, total: added + edited + removed };
   }
 
+  function speedSentence() {
+    if (!speedChanged()) return '';
+    const live = liveSlideSeconds != null ? liveSlideSeconds : CFG.slideSeconds;
+    return 'Each slide will stay up ' + draftSlideSeconds + ' seconds instead of ' +
+      live + '.';
+  }
+
   function changeSentence() {
     const c = changeSummary();
-    if (!c) return '';
+    if (!c) return speedSentence();
     const bits = [];
     if (c.added) bits.push(plural(c.added, 'new one'));
     if (c.edited) bits.push(plural(c.edited, 'edit'));
     if (c.removed) bits.push(plural(c.removed, 'removal'));
-    if (!bits.length) return c.reordered ? 'The running order has changed.' : 'Something has changed.';
+
+    const speed = speedSentence();
+    if (!bits.length) {
+      if (c.reordered) return ('The running order has changed. ' + speed).trim();
+      return speed || 'Something has changed.';
+    }
+
     const list = bits.length === 1 ? bits[0]
       : bits.slice(0, -1).join(', ') + ' and ' + bits[bits.length - 1];
-    return list.charAt(0).toUpperCase() + list.slice(1) +
-      (c.reordered ? ', and the running order changed.' : '.');
+    return (list.charAt(0).toUpperCase() + list.slice(1) +
+      (c.reordered ? ', and the running order changed.' : '.') +
+      (speed ? ' ' + speed : '')).trim();
   }
 
   /* ------------------------------------------------------------ item model -- */
@@ -267,6 +295,8 @@
 
   function adoptLive() {
     items = fromLive(liveItems);
+    draftSlideSeconds = liveSlideSeconds != null ? liveSlideSeconds : CFG.slideSeconds;
+    renderSpeed();
     conflict = false;
     selected = Math.min(selected, Math.max(0, items.length - 1));
     clearDraft();
@@ -335,6 +365,57 @@
       return { level: 'tight', pct, note: pct + '% full — getting small, worth shortening' };
     }
     return { level: 'good', pct, note: pct + '% full — reads well from across the hall' };
+  }
+
+  /* ------------------------------------------------ how long a slide stays -- */
+
+  const SPEED_MIN = 4;
+  const SPEED_MAX = 120;
+
+  const speedEl = $('speed');
+
+  function clampSpeed(v) {
+    const n = Math.round(Number(v));
+    if (!isFinite(n)) return null;
+    return Math.min(SPEED_MAX, Math.max(SPEED_MIN, n));
+  }
+
+  function renderSpeed() {
+    if (!speedEl) return;
+    // Don't fight somebody who is mid-keystroke in the box.
+    if (document.activeElement !== speedEl) speedEl.value = String(draftSlideSeconds);
+    speedEl.parentElement.classList.toggle('is-changed', speedChanged());
+
+    const live = liveSlideSeconds != null ? liveSlideSeconds : CFG.slideSeconds;
+    speedEl.title = speedChanged()
+      ? 'The TV is showing each slide for ' + live + ' seconds. Press “Make it live” ' +
+        'to change it to ' + draftSlideSeconds + '.'
+      : 'How long each slide sits on the TV before the next one. Longer ' +
+        'announcements get a little more than this on top.';
+  }
+
+  if (speedEl) {
+    // 'input' rather than 'change' so the status bar and the button react as
+    // the number is typed, the same as every other field on this page.
+    speedEl.addEventListener('input', () => {
+      const n = clampSpeed(speedEl.value);
+      if (n == null) return;              // mid-edit, or emptied: leave it be
+      draftSlideSeconds = n;
+      renderSpeed();
+      renderStatus();
+      saveDraft();
+    });
+
+    // Whatever was typed is only forced into range on the way out, so that
+    // typing "10" does not become "104" on the way to "104".
+    speedEl.addEventListener('blur', () => {
+      const n = clampSpeed(speedEl.value);
+      draftSlideSeconds = n == null ? draftSlideSeconds : n;
+      speedEl.value = String(draftSlideSeconds);
+      renderSpeed();
+      renderStatus();
+      saveDraft();
+    });
   }
 
   /* ------------------------------------------------------------ link check -- */
@@ -911,8 +992,9 @@
       const c = changeSummary();
       state = 'draft';
       pill = 'Not live yet';
-      line = c && c.total
-        ? plural(c.total, 'change') + ' not on the TV yet.'
+      const total = (c ? c.total : 0) + (speedChanged() ? 1 : 0);
+      line = total
+        ? plural(total, 'change') + ' not on the TV yet.'
         : 'Changes not on the TV yet.';
       sub = changeSentence() + ' Press “Make it live” when you’re ready.';
     }
@@ -978,6 +1060,7 @@
 
   function renderAll() {
     renderList();
+    renderSpeed();
     renderStatus();
     renderBanner();
     pushPreview();
@@ -1729,7 +1812,7 @@
     renderStatus();
 
     try {
-      await global.Live.publish(matrix, who);
+      await global.Live.publish(matrix, who, draftSlideSeconds);
       toast('Sent to Google — watching the Sheet for it to appear');
       schedulePoll(3000);
     } catch (err) {
@@ -1779,7 +1862,9 @@
   }
 
   function onLive(live) {
-    const changedOnSheet = live.sig !== liveSig;
+    // The speed is compared alongside the rows: somebody else changing only
+    // how fast the hall reads is still a change to what is on the television.
+    const changedOnSheet = live.sig !== liveSig || live.slideSeconds !== liveSlideSeconds;
     const wasClean = liveItems !== null && !isDirty();
 
     liveStamp = live.stamp;
@@ -1793,6 +1878,7 @@
 
     liveItems = live.items;
     liveSig = live.sig;
+    liveSlideSeconds = live.slideSeconds;
 
     if (publishing) {
       if (global.Live.confirmSig(live.items) === publishExpectSig) {
@@ -1845,6 +1931,7 @@
       liveItems = live.items;
       liveSig = live.sig;
       liveStamp = live.stamp;
+      liveSlideSeconds = live.slideSeconds;
       conflict = false;
       adoptLive();
       toast('Loaded what is on the TV');
@@ -1974,6 +2061,8 @@
       liveItems = live.items;
       liveSig = live.sig;
       liveStamp = live.stamp;
+      liveSlideSeconds = live.slideSeconds;
+      draftSlideSeconds = live.slideSeconds != null ? live.slideSeconds : CFG.slideSeconds;
       items = fromLive(live.items);
 
       if (draft && draft.liveSig === live.sig && global.Live.deckSig(draft.items) !== live.sig) {
@@ -1981,6 +2070,7 @@
         // version of the Sheet. Nothing has moved underneath it, so it is
         // safe to offer back.
         items = draft.items;
+        if (draft.slideSeconds) draftSlideSeconds = draft.slideSeconds;
         showBanner('restored-draft',
           'You have changes here from ' + timeAgo(draft.savedAt) +
           ' that were never made live.',
@@ -1992,6 +2082,7 @@
                  global.Live.deckSig(draft.items) !== draft.liveSig) {
         // Unpublished work, but the Sheet has moved on since it was written.
         items = draft.items;
+        if (draft.slideSeconds) draftSlideSeconds = draft.slideSeconds;
         conflict = true;
       } else if (draft) {
         clearDraft();

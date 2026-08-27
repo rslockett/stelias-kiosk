@@ -289,7 +289,14 @@
 
       const rows = global.CSV.parseObjects(csvText);
       const slides = buildDeck(rows, new Date());
-      emit('deck', slides, { source, totalRows: rows.length, stamp: stampFrom(rows) });
+      emit('deck', slides, {
+        source,
+        totalRows: rows.length,
+        stamp: stampFrom(rows),
+        // How long each slide should stay up, if the Sheet says. Null when it
+        // does not, and the figure in config.js stands.
+        slideSeconds: secondsFrom(rows),
+      });
       return true;
     }
 
@@ -335,6 +342,24 @@
         return this;
       },
     };
+  }
+
+  /**
+   * How long each slide should stay up, as the Sheet has it.
+   *
+   * Null when the Sheet says nothing — an older Apps Script, or a parish that
+   * has never changed it — and the figure in config.js stands. It lives in the
+   * Sheet because the people who can tell the hall is being rushed are
+   * standing in it, and the alternative is editing a file in a repository.
+   */
+  function secondsFrom(rows) {
+    for (const r of rows) {
+      if (r.secondsperslide !== undefined && String(r.secondsperslide).trim() !== '') {
+        const n = Math.round(Number(r.secondsperslide));
+        if (isFinite(n) && n > 0) return Math.min(120, Math.max(4, n));
+      }
+    }
+    return null;
   }
 
   /* ------------------------------------------------- keeping your place -- */
@@ -387,6 +412,7 @@
     hash,
     slideKey,
     keepPosition,
+    secondsFrom,
     // Shared so the liturgical and sign-up tabs get the same retry. They read
     // published CSVs from the same Google endpoint and hit the same
     // intermittent redirect — see the note above fetchCsv.

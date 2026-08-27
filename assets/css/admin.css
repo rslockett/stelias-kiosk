@@ -1029,3 +1029,35 @@ code {
 @media (prefers-reduced-motion: reduce) {
   * { transition-duration: 1ms !important; animation-duration: 1ms !important; }
 }
+
+
+/* ------------------------------------------------- how long a slide stays -- */
+
+.speed {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  margin-left: auto;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+.speed__input {
+  width: 3.6rem;
+  padding: 0.25rem 0.4rem;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--ink);
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 0.35rem;
+}
+.speed__input:focus-visible {
+  outline: 2px solid var(--gold-deep);
+  outline-offset: 1px;
+}
+.speed.is-changed .speed__input {
+  border-color: var(--gold-deep);
+  background: var(--gold-pale);
+}

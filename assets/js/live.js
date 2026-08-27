@@ -173,6 +173,7 @@
     return null;
   }
 
+
   async function fetchLive() {
     const url = CFG.sheetCsvUrl;
     if (!url) throw new Error('No Sheet address is set in config.js');
@@ -193,7 +194,13 @@
 
     const rows = global.CSV.parseObjects(text);
     const items = rowsToItems(rows);
-    return { items, sig: deckSig(items), stamp: stampFrom(rows), rowCount: rows.length };
+    return {
+      items,
+      sig: deckSig(items),
+      stamp: stampFrom(rows),
+      slideSeconds: global.Deck.secondsFrom(rows),
+      rowCount: rows.length,
+    };
   }
 
   /* ------------------------------------------------------------- publishing -- */
@@ -213,16 +220,21 @@
    * Proving it saved is fetchLive()'s job, and the editor does not say the
    * word "live" until fetchLive() has seen the rows for itself.
    */
-  async function publish(matrix, editor) {
+  async function publish(matrix, editor, secondsPerSlide) {
+    const body = {
+      secret: CFG.publishSecret,
+      by: String(editor || '').slice(0, 60),
+      rows: matrix,
+    };
+    // Left out entirely rather than sent as null, so the Apps Script can tell
+    // "no opinion" from "set it to nothing" and keep what the Sheet already has.
+    if (secondsPerSlide != null) body.secondsPerSlide = secondsPerSlide;
+
     await fetch(CFG.publishUrl, {
       method: 'POST',
       mode: 'no-cors',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({
-        secret: CFG.publishSecret,
-        by: String(editor || '').slice(0, 60),
-        rows: matrix,
-      }),
+      body: JSON.stringify(body),
     });
   }
 

@@ -343,6 +343,33 @@
       res.status + '). The slide still renders, without it.');
   });
 
+  /* -------------------------------------------------- how fast it goes -- */
+
+  // The speed lives in the Sheet so it can be changed by whoever is standing
+  // in the hall finding the slides too quick, rather than by editing a file.
+  test('the slide speed is read from the Sheet, and nonsense is ignored', () => {
+    const S = global.Deck.secondsFrom;
+    const rows = v => [{ title: 'A', secondsperslide: '' }, { title: 'B', secondsperslide: v }];
+
+    assert(S(rows('20')) === 20, 'a plain number should be read');
+    assert(S(rows(18)) === 18, 'so should one the CSV parsed as a number');
+    assert(S(rows('12.6')) === 13, 'a decimal should round');
+
+    // Nothing to say: the television falls back to config.js rather than
+    // taking a guess or stopping on one slide forever.
+    assert(S([{ title: 'A' }]) === null, 'a Sheet without the column says nothing');
+    assert(S([{ title: 'A', publishedby: 'X' }]) === null, 'nor does an older Sheet');
+    assert(S(rows('')) === null, 'an empty cell says nothing');
+    assert(S(rows('soon')) === null, 'and neither does a word');
+    assert(S(rows('0')) === null, 'zero would stop the rotation dead');
+    assert(S(rows('-5')) === null, 'so would a negative');
+
+    // A typo in a spreadsheet cell should not leave the hall on one slide for
+    // three hours, nor flicker past unreadably.
+    assert(S(rows('9999')) === 120, 'an absurd number is clamped down');
+    assert(S(rows('1')) === 4, 'and a too-quick one is clamped up');
+  });
+
   /* ------------------------------------------------ shapes, without a file -- */
 
   test('one day over one paragraph is still an ordinary announcement', () => {
