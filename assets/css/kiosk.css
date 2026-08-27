@@ -289,31 +289,20 @@ body::after {
   overflow-wrap: break-word;
 }
 
+/* The ornament under a title — drawn in slide.js, coloured here. A small
+   cross of the same family as the one on the wallpaper, rather than the plain
+   gold bar this used to be. */
 .slide__rule {
-  position: relative;
-  width: 3.2em;
-  height: 0.11em;
-  min-height: 3px;
-  margin: 0.55em auto;
-  background: linear-gradient(90deg,
-    rgba(213, 146, 11, 0.35), var(--gold-deep) 30%, var(--gold) 70%, rgba(213, 146, 11, 0.35));
-  border-radius: 2px;
+  display: block;
+  width: 6.2em;
+  height: auto;
+  margin: 0.3em auto 0.5em;
+  overflow: visible;
 }
-
-/* Small diamond ticks at each end — the rule reads as an ornament rather
-   than a plain divider line. */
-.slide__rule::before,
-.slide__rule::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  width: 0.46em;
-  height: 0.46em;
-  background: var(--gold-deep);
-  transform: translateY(-50%) rotate(45deg);
-}
-.slide__rule::before { left: -0.04em; }
-.slide__rule::after  { right: -0.04em; }
+.rule__bar   { fill: var(--gold-deep); opacity: 0.75; }
+.rule__pip   { fill: var(--gold-deep); opacity: 0.55; }
+.rule__cross { fill: var(--gold-deep); }
+.rule__heart { fill: var(--gold-pale); stroke: var(--gold-deep); stroke-width: 1.1; }
 
 .slide__body {
   font-size: 1em;
@@ -432,7 +421,9 @@ body::after {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding-bottom: 2vh;
+  /* Enough air that the picture and the QR code beneath it read as two
+     things rather than one stacked object. */
+  padding-bottom: 3.4vh;
 }
 
 .slide__image img {
@@ -442,6 +433,19 @@ body::after {
   border-radius: 3px;
   border: 0.5vh solid #fff;
   box-shadow: 0 1.2vh 3vh rgba(54, 46, 48, 0.16);
+}
+
+/* A cut-out — an icon on a transparent ground rather than a photograph.
+   The white mount and the drop shadow are what make a photograph look like a
+   print pinned to the wall; around a shape that has no edges of its own they
+   just draw a box in mid-air. Let it sit on the parchment the way the
+   ornament in the corners does. */
+.slide__image--plain img {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  object-fit: contain;
+  filter: drop-shadow(0 0.8vh 1.6vh rgba(54, 46, 48, 0.18));
 }
 
 /* --------------------------------------------------------------- signup -- */

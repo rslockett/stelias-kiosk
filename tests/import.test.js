@@ -294,6 +294,55 @@
     assert(K(sign, [a, signLater], 1) === 1, 'the sign-up slide lost its place');
   });
 
+  /* --------------------------------------------------------- how it looks -- */
+
+  const buildOneOfEach = () => [
+    { what: 'words only', slide: { title: 'Text only', body: 'No link, no picture.' } },
+    { what: 'words and a code', slide: { title: 'With a QR', body: 'Words and a code.',
+        link: 'https://example.org', linkLabel: 'Scan' } },
+    { what: 'words, picture and a code', slide: { title: 'With a photo', body: 'All three.',
+        link: 'https://example.org', linkLabel: 'Scan', image: 'assets/img/photo.jpg' } },
+    { what: 'a sign-up list', slide: { kind: 'signup', title: 'Coffee Hour Sign-Up',
+        subtitle: 'Hosts needed', entries: [{ label: 'Sunday, Sept 6', name: '' }],
+        qrUrl: 'https://example.org', qrLabel: 'Scan' } },
+  ];
+
+  test('every kind of slide gets the ornament under its title', () => {
+    buildOneOfEach().forEach(c => {
+      const el = global.Slide.buildSlideEl(c.slide);
+      const rule = el.querySelector('.slide__rule');
+      assert(rule, c.what + ': no ornament under the title');
+      assert(rule.tagName.toLowerCase() === 'svg',
+        c.what + ': the ornament should be drawn, not a styled div');
+      assert(el.querySelectorAll('.rule__cross').length === 1,
+        c.what + ': the cross is missing from the ornament');
+    });
+  });
+
+  // A photograph gets a white mount and a drop shadow, which is what makes it
+  // look like a print on the wall. Around a cut-out — an icon on a transparent
+  // ground — that mount is just a box drawn in mid-air.
+  test('a transparent picture is shown without a photo mount', () => {
+    const cut = global.Slide.buildSlideEl({ title: 'Welcome', body: 'Hello.',
+      image: 'assets/img/welcome-prophet-elias.png' });
+    assert(cut.querySelector('.slide__image--plain'),
+      'a .png should be treated as a cut-out');
+
+    const photo = global.Slide.buildSlideEl({ title: 'Festival', body: 'Come along.',
+      image: 'assets/img/photo.jpg' });
+    assert(photo.querySelector('.slide__image'), 'the photo went missing');
+    assert(!photo.querySelector('.slide__image--plain'),
+      'a .jpg is a photograph and keeps its mount');
+  });
+
+  test('the welcome slide points at a picture that exists', async () => {
+    const src = global.KIOSK_CONFIG.welcome && global.KIOSK_CONFIG.welcome.image;
+    if (!src) return;                       // configured without one: fine
+    const res = await fetch(src, { method: 'GET' });
+    assert(res.ok, 'the welcome slide names ' + src + ' but it is not there (' +
+      res.status + '). The slide still renders, without it.');
+  });
+
   /* ------------------------------------------------ shapes, without a file -- */
 
   test('one day over one paragraph is still an ordinary announcement', () => {

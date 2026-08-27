@@ -142,7 +142,9 @@ window.KIOSK_CONFIG = {
      shortened one — see the note above the sign-ups.
 
      image is the icon shown beside the greeting. Leave it blank and the slide
-     still works, as words and a QR code.
+     still works, as words and a QR code. A .png is treated as a cut-out and
+     shown without the white mount a photograph gets, so an icon on a
+     transparent ground sits on the parchment rather than in a box.
 
      Leave formUrl blank to leave the welcome slide off the TV entirely.
 
@@ -156,9 +158,9 @@ window.KIOSK_CONFIG = {
     body: 'If this is your first time with us, we are glad you are here.\n\n' +
       'Please stay for coffee, and introduce yourself to Fr. Elias or to ' +
       'anyone wearing a name tag.',
-    image: 'assets/img/welcome-prophet-elias.jpg',
+    image: 'assets/img/welcome-prophet-elias.png',
     formUrl: 'https://steliasaustin.breezechms.com/form/welcome',
-    qrLabel: 'Scan to say hello',
+    qrLabel: 'Welcome Form',
   },
 
 

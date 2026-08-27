@@ -305,6 +305,73 @@
     return urls.map((u, i) => ({ url: u, label: (labels[i] || '').trim() || CFG.defaultQrLabel }));
   }
 
+  /** A picture with its own transparency, rather than a photograph. */
+  function isCutout(src) {
+    return /\.png(\?|#|$)/i.test(String(src || ''));
+  }
+
+  /* ----------------------------------------------------------- ornament -- */
+
+  /**
+   * The ornament under a slide's title.
+   *
+   * It used to be a gold bar with a diamond at each end — correct, and about
+   * as interesting as a horizontal rule. The wallpaper behind every slide is
+   * an ornamented Byzantine cross, so the divider is a small one of the same
+   * family: a cross pattee with a lozenge at its heart, flanked by rules that
+   * taper away to nothing.
+   *
+   * Drawn rather than typed, because at the sizes a television uses this has
+   * to stay crisp whether the fit-to-box pass settled on 26px or 62px, and a
+   * glyph would be at the mercy of whichever font happened to load.
+   */
+  function ruleSvg() {
+    // The box is kept tight around the ornament. Give the rules a long run
+    // either side and the cross has to shrink to keep the whole thing the
+    // width of a line of text — it ended up a nine-pixel smudge under a
+    // thirty-pixel title. Short rules, big cross.
+    const cx = 90, cy = 17;
+    const L = 14;     // arm length from centre
+    const t = 6.6;    // half-width at the flared tip
+    const w = 2.6;    // half-width at the waist
+
+    const cross =
+      'M' + (cx - t) + ' ' + (cy - L) +
+      'L' + (cx + t) + ' ' + (cy - L) +
+      'L' + (cx + w) + ' ' + (cy - w) +
+      'L' + (cx + L) + ' ' + (cy - t) +
+      'L' + (cx + L) + ' ' + (cy + t) +
+      'L' + (cx + w) + ' ' + (cy + w) +
+      'L' + (cx + t) + ' ' + (cy + L) +
+      'L' + (cx - t) + ' ' + (cy + L) +
+      'L' + (cx - w) + ' ' + (cy + w) +
+      'L' + (cx - L) + ' ' + (cy + t) +
+      'L' + (cx - L) + ' ' + (cy - t) +
+      'L' + (cx - w) + ' ' + (cy - w) + 'Z';
+
+    // A rule that starts as a point out at the margin and swells as it comes
+    // in, so the eye is carried towards the cross rather than away from it.
+    const wedge = (from, to) =>
+      'M' + from + ' ' + cy +
+      'L' + to + ' ' + (cy - 2.9) +
+      'L' + to + ' ' + (cy + 2.9) + 'Z';
+
+    const pip = x =>
+      'M' + x + ' ' + (cy - 3.6) + 'L' + (x + 3.6) + ' ' + cy +
+      'L' + x + ' ' + (cy + 3.6) + 'L' + (x - 3.6) + ' ' + cy + 'Z';
+
+    return '' +
+      '<svg class="slide__rule" viewBox="0 0 180 34" ' +
+           'preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false">' +
+        '<path class="rule__bar" d="' + wedge(20, 68) + '"/>' +
+        '<path class="rule__bar" d="' + wedge(160, 112) + '"/>' +
+        '<path class="rule__pip" d="' + pip(13) + '"/>' +
+        '<path class="rule__pip" d="' + pip(167) + '"/>' +
+        '<path class="rule__cross" d="' + cross + '"/>' +
+        '<circle class="rule__heart" cx="' + cx + '" cy="' + cy + '" r="3.4"/>' +
+      '</svg>';
+  }
+
   /**
    * Build the DOM for one slide.
    * Layout is chosen from what the row actually has in it.
@@ -338,9 +405,13 @@
         '</aside>';
     }
 
+    // A .png is taken to be a cut-out — an icon on a transparent ground — and
+    // is shown without the white mount a photograph gets. A photograph is a
+    // .jpg, which is the convention already in use for everything in the
+    // Sheet's Image column.
     const imgHtml = hasImg
-      ? '<div class="slide__image"><img src="' + escapeHtml(slide.image) +
-        '" alt="" loading="eager"></div>'
+      ? '<div class="slide__image' + (isCutout(slide.image) ? ' slide__image--plain' : '') +
+        '"><img src="' + escapeHtml(slide.image) + '" alt="" loading="eager"></div>'
       : '';
 
     el.innerHTML =
@@ -348,7 +419,7 @@
       '<div class="slide__main">' +
         '<div class="slide__fit">' +
           '<h2 class="slide__title">' + escapeHtml(slide.title) + '</h2>' +
-          '<div class="slide__rule" aria-hidden="true"></div>' +
+          ruleSvg() +
           '<div class="slide__body' +
             (hasStructure(slide.body) ? ' slide__body--structured' : '') + '">' +
             renderBody(slide.body) +
@@ -440,7 +511,7 @@
       '<div class="slide__main">' +
         '<div class="slide__fit">' +
           '<h2 class="slide__title">' + escapeHtml(slide.title) + '</h2>' +
-          '<div class="slide__rule" aria-hidden="true"></div>' +
+          ruleSvg() +
           (slide.subtitle ? '<p class="signup__subtitle">' + escapeHtml(slide.subtitle) + '</p>' : '') +
           '<ul class="signup__list">' + rowsHtml + '</ul>' +
         '</div>' +
