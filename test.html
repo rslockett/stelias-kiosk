@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>St. Elias — Importer checks</title>
+<style>
+  body { font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+         margin: 0; padding: 2rem 1.5rem; color: #222; background: #fdfaf6; }
+  main { max-width: 60rem; margin: 0 auto; }
+  h1 { font-size: 1.4rem; margin: 0 0 .25rem; }
+  .sub { color: #6b6257; margin: 0 0 1.5rem; }
+  #summary { font-size: 1.2rem; font-weight: 600; padding: .8rem 1rem; border-radius: .5rem;
+             margin-bottom: 1.25rem; background: #eee; }
+  #summary.ok   { background: #e4f2e0; color: #1e5220; }
+  #summary.bad  { background: #f7e0dd; color: #7d2018; }
+  li { list-style: none; margin: .2rem 0; }
+  .pass::before { content: "✓ "; color: #2f7a33; font-weight: 700; }
+  .fail::before { content: "✗ "; color: #b4342a; font-weight: 700; }
+  .fail { color: #b4342a; font-weight: 600; }
+  pre { background: #fff; border: 1px solid #e6ded3; border-radius: .4rem;
+        padding: .7rem .9rem; overflow-x: auto; font-size: .85rem; white-space: pre-wrap;
+        margin: .3rem 0 .9rem 1.4rem; color: #7d2018; }
+  ul { padding: 0; }
+  details { margin-top: 2rem; }
+  details pre { color: #333; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Importer checks</h1>
+  <p class="sub">
+    Every case here is a mistake this importer has actually made on a real
+    newsletter. Run this after changing anything in
+    <code>eml.js</code>, <code>import.js</code> or <code>import-ui.js</code>.
+  </p>
+
+  <div id="summary">Running…</div>
+  <ul id="results"></ul>
+
+  <details>
+    <summary>What the fixture newsletter turns into</summary>
+    <pre id="dump">…</pre>
+  </details>
+</main>
+
+<script src="assets/js/config.js"></script>
+<script src="assets/js/deck.js"></script>
+<script src="assets/js/format.js"></script>
+<script src="assets/js/eml.js"></script>
+<script src="assets/js/import.js"></script>
+<script src="tests/import.test.js"></script>
+<script>
+(async () => {
+  const results = document.getElementById('results');
+  const summary = document.getElementById('summary');
+
+  const report = (ok, name, err) => {
+    const li = document.createElement('li');
+    li.className = ok ? 'pass' : 'fail';
+    li.textContent = name;
+    results.appendChild(li);
+    if (!ok) {
+      const pre = document.createElement('pre');
+      pre.textContent = err && err.message ? err.message : String(err);
+      results.appendChild(pre);
+    }
+  };
+
+  try {
+    const r = await window.ImportTests.run(report);
+    summary.className = r.failed ? 'bad' : 'ok';
+    summary.textContent = r.failed
+      ? r.failed + ' of ' + (r.passed + r.failed) + ' checks failed'
+      : 'All ' + r.passed + ' checks passed';
+    document.getElementById('dump').textContent =
+      r.items.map((it, i) =>
+        i + (it.isSection ? ' [section]' : it.include === false ? ' [off]' : '') +
+        ' « ' + it.title + ' »' + (it.link ? '   → ' + it.link.replace(/\n/g, ' , ') : '') +
+        (it.body ? '\n    ' + it.body.replace(/\n/g, '\n    ') : '')
+      ).join('\n\n');
+  } catch (err) {
+    summary.className = 'bad';
+    summary.textContent = 'The checks could not run: ' + err.message;
+    console.error(err);
+  }
+})();
+</script>
+</body>
+</html>

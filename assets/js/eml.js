@@ -213,7 +213,19 @@
     let node;
     while ((node = walker.nextNode())) {
       const v = node.nodeValue;
-      if (!v || !v.trim()) continue;
+      if (!v) continue;
+
+      // Whitespace-only nodes are not nothing. The newlines we put in place of
+      // every <br> live here, and so does the ordinary space that separates
+      // two spans. Dropping them is what fuses a sentence to the next one —
+      // "the Archdiocese.Audition deadline", "Summitfrom Oct. 22". Keep the
+      // whitespace on the run it follows; cleanText trims what is only padding.
+      if (!v.trim()) {
+        const prev = runs[runs.length - 1];
+        if (prev) prev.text += v;
+        continue;
+      }
+
       const bold = isBoldish(node.parentElement, block);
       const last = runs[runs.length - 1];
       if (last && last.bold === bold) last.text += v;
@@ -246,6 +258,41 @@
     // before textContent throws the distinction away.
     doc.querySelectorAll('br').forEach(br => {
       br.replaceWith(doc.createTextNode('\n'));
+    });
+
+    // A small table is a table of facts — the coffee hour sponsor board is
+    // "SUNDAY | SPONSOR" over a row per week. Read cell by cell it arrives as
+    // "Aug 30", then "Dickinson", on separate lines, and the pairing that was
+    // the entire point of the table is gone. Fold each row onto one line
+    // instead, and drop the column headers: once the pair reads "Aug 30 —
+    // Dickinson" the headers are saying nothing the line doesn't.
+    //
+    // Guarded tightly, because newsletters also use tables purely for layout:
+    // every row has to be short, and there have to be several of them.
+    doc.querySelectorAll('table').forEach(table => {
+      const rows = Array.from(table.querySelectorAll('tr'))
+        .filter(tr => !tr.querySelector('table'));
+      if (rows.length < 3) return;
+
+      const grid = [];
+      for (const tr of rows) {
+        const cells = Array.from(tr.children).filter(c => /^t[dh]$/i.test(c.tagName));
+        if (cells.length < 2 || cells.length > 4) return;
+        const parts = cells.map(c => cleanText(c.textContent));
+        if (parts.some(p => p.length > 40 || p.indexOf('\n') !== -1)) return;
+        if (!parts.some(Boolean)) return;
+        grid.push({ tr, parts, allBold: cells.every(c => !c.textContent.trim() || blockIsBold(c)) });
+      }
+
+      // A leading row of bold column headings is scaffolding, not content.
+      if (grid.length > 1 && grid[0].allBold && !grid[1].allBold) grid.shift();
+
+      const lines = grid.map(r => r.parts.filter(Boolean).join(' — ')).filter(Boolean);
+      if (lines.length < 2) return;
+
+      const holder = doc.createElement('div');
+      holder.textContent = lines.join('\n');
+      table.replaceWith(holder);
     });
 
     // Only leaf-level blocks, so text isn't counted once per nesting level.
@@ -344,9 +391,31 @@
       const rest = runs.length > 1 ? cleanText(runs.slice(1).map(r => r.text).join('')) : '';
 
       if (leadTitle && leadTitle.length >= 2 && leadTitle.length <= 90 && rest) {
-        blocks.push({ text: leadTitle, bold: true, link: '', linkLabel: '', tracking: false });
+        // Sharing a paragraph with the text beneath it is not enough to say
+        // this is a label rather than an announcement's own title — Word puts
+        // plenty of real titles in the same block as their first sentence.
+        // Two shapes are labels, and only these two:
+        //
+        //   "Hotel: Avid Hotel Quail Springs"    — introduces what follows
+        //   "Linda Mingus – ldmingus@gmail.com"  — a name and how to reach them
+        //
+        // Anything else stays a title, because breaking a real announcement in
+        // half is far worse than leaving a label looking like a heading.
+        const introduces = /[:\u2013\u2014-]\s*$/.test(leadTitle);
+        const contact = rest.length <= 60 &&
+          /^[\s:\u2013\u2014-]*(?:[^\s@]+@[^\s@]+|\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}|https?:\/\/\S+)[\s.,]*$/.test(rest);
+
+        blocks.push({
+          text: leadTitle.replace(/[\s:\u2013\u2014-]+$/, ''),
+          bold: true, inline: introduces || contact,
+          link: '', linkLabel: '', tracking: false,
+        });
         const { link, linkLabel, tracking } = linkIn(el);
-        blocks.push({ text: rest, bold: false, link, linkLabel, tracking });
+        // "**Tournament Cost**: $60" leaves its colon behind on the body.
+        blocks.push({
+          text: rest.replace(/^[\s:\u2013\u2014-]+/, ''),
+          bold: false, link, linkLabel, tracking,
+        });
         continue;
       }
 

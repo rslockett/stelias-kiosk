@@ -1,0 +1,76 @@
+Delivered-To: office@example.org
+Subject: Weekly Newsletter
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="BOUND"
+
+--BOUND
+Content-Type: text/plain; charset="UTF-8"
+
+Plain text part, deliberately thin — the HTML part is the real one.
+
+--BOUND
+Content-Type: text/html; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+<html><body>
+<div><strong>Services for this Week</strong></div>
+
+<div><strong>Tuesday, Sept. 1 -</strong></div>
+<div>Divine Liturgy - 8:30AM</div>
+<div><strong>Wednesday, Sept. 2 -</strong></div>
+<div>Great Vespers - 6:00 PM</div>
+<div><strong>Sunday, Sept. 6 -</strong></div>
+<div>Orthros 8:30 AM</div>
+<div>Divine Liturgy 9:30 AM</div>
+<div>Please note:</div>
+<div>You can consult the fasting calendar from the Archdiocese for more information.</div>
+
+<div><strong>Parish News</strong></div>
+
+<div><strong>Are You Interested in Becoming Orthodox?</strong> If you are interested=
+ in becoming Orthodox, let Fr. Test know. We are happy to receive you as a catechume=
+n and get you on the path to entering the Church.</div>
+
+<div><strong>Concert Choir&nbsp;</strong><span>Auditions are open, featuring both West=
+ern choral and Byzantine chant.</span><br><br><span>Audition deadline: September 11.<=
+/span> <span>Church musicians are encouraged to take advantage of this.</span></div>
+
+<div><strong>Basketball Tournament</strong></div>
+<div><strong>Dates:&nbsp;</strong>Friday, October 2nd - Sunday, October 4th<br><br><s=
+trong>Place:&nbsp;</strong>St. Somewhere, Oklahoma City, OK<br><br><strong>Who:&nbsp;=
+</strong>7th graders and older</div>
+<div><strong>Tournament Cost</strong>: $60 per person. That will cover a t-shirt, mea=
+ls and snacks.<br><br><strong>Hotel:&nbsp;</strong>Some Hotel Springs<br>2700 NW 138t=
+h Street, OKC, OK 73134</div>
+
+<div><strong>Festival 2026 &#8211; Save the Date!</strong></div>
+<div>The Festival returns Friday, October 16, 2026! We are looking for volunteers rea=
+dy to step into leadership roles.</div>
+<div>Interested in a leadership role?</div>
+<div>Contact:</div>
+<div><strong>Ada Lovelace</strong> &#8211; <a href=3D"mailto:ada@example.org">ada@exa=
+mple.org</a></div>
+<div><strong>Grace Hopper</strong> &#8211; <a href=3D"mailto:grace@example.org">grace=
+@example.org</a></div>
+
+<div><strong>Coffee Hour</strong></div>
+<div><strong>THANK YOU TO OUR COFFEE HOUR SPONSORS!</strong></div>
+<table border=3D"0" cellspacing=3D"0" cellpadding=3D"0"><tbody>
+<tr><td><div><strong>SUNDAY</strong></div></td><td><div><strong>SPONSOR</strong></div=
+></td></tr>
+<tr><td><div>Aug 30</div></td><td><div>Dickinson</div></td></tr>
+<tr><td><div>Sept 6</div></td><td><div>Dickinson</div></td></tr>
+<tr><td><div>Sept 13</div></td><td><div>TBD</div></td></tr>
+</tbody></table>
+<div>We would love to have this board filled, so please sign up in the hall.</div>
+
+<div><strong>Online Donations</strong></div>
+<div>Donate through our website (<a href=3D"https://example.org/give">https://example=
+.org/give</a>) or text to give. You can set up recurring gifts this way.</div>
+
+<div><strong>Note on Announcements&nbsp;</strong><span>Please submit announcements to=
+ the church office by no later than Thursday at 11am.</span> <span>Thank you!</span><=
+/div>
+
+</body></html>
+--BOUND--

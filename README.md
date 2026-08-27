@@ -70,6 +70,27 @@ The TV updates itself within a few minutes. Nobody goes near the Pi.
 > better — Gmail's copy-paste throws away the formatting that marks headings, so
 > the importer has much less to go on.
 
+### When the import comes out wrong
+
+It will, eventually. The newsletter is written in Word, pasted into Outlook and
+sent through a mailing service, and none of that markup is a contract: a heading
+that was bold last week can arrive as a table cell this week. The importer reads
+the shape of the newsletter, so a change in shape is a change in the result.
+
+Everything the importer has ever got wrong is written down as a check. Open
+**`test.html`** in a browser — no install, no build step, it just loads the same
+files the editor loads and runs them against a made-up newsletter that has every
+awkward shape in it. Green means the known mistakes are all still fixed.
+
+Run it after touching `eml.js`, `import.js` or `import-ui.js`. When a new kind of
+mangling turns up, add the shape to `sample/newsletter-fixture.eml.txt` and the
+check to `tests/import.test.js`, then fix it — that way it can only happen once.
+
+Never commit a real newsletter to try something out. They carry parishioner
+names, home emails and phone numbers, and this repository is published to GitHub
+Pages. `.gitignore` blocks `.eml` files for exactly that reason; keep the fixture
+invented.
+
 ---
 
 ## Working together on it

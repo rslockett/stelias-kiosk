@@ -161,6 +161,12 @@
     body = body
       .replace(/\b(sign up|register|rsvp|more info(rmation)?|details|link)\s*(here)?\s*[:\-–]?\s*$/gim, '')
       .replace(/^\s*[:\-–]\s*/gm, '')
+      // A URL written inside the sentence — "through our website (…)" — leaves
+      // its brackets standing empty once the QR code has taken it over.
+      .replace(/\(\s*\)/g, '')
+      .replace(/\[\s*\]/g, '')
+      .replace(/[ \t]{2,}/g, ' ')
+      .replace(/[ \t]+([.,;:!?])/g, '$1')
       .replace(/\n{3,}/g, '\n\n')
       .trim();
 
@@ -535,6 +541,20 @@
     };
 
     for (const b of blocks) {
+      // An inline heading — bold text sharing its paragraph with the words
+      // under it — is a label inside an announcement, not the start of a new
+      // one. Treating every one of them as a title is what turned a single
+      // festival announcement into "Scan the QR code", "Linda Mingus" and
+      // "Yara El Hayek", each a slide of its own with an email under it.
+      // Keep it where it belongs, as a sub-heading of what we are building.
+      if (b.bold && b.inline && cur && cur.title) {
+        cur.lines.push('## ' + b.text);
+        linkPairs(b.link, b.linkLabel).forEach(p => {
+          if (!cur.links.some(x => x.url === p.url)) cur.links.push(p);
+        });
+        continue;
+      }
+
       if (b.bold) {
         flush();
         cur = { title: b.text, lines: [], links: [] };
