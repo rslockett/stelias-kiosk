@@ -301,6 +301,7 @@
     conflict = false;
     selected = Math.min(selected, Math.max(0, items.length - 1));
     clearDraft();
+    publishExpectSig = null;
 
     /*
      * Every banner this editor raises is about work that has not been made
@@ -2011,26 +2012,71 @@
     liveSig = live.sig;
     liveSlideSeconds = live.slideSeconds;
 
+    /*
+     * The Sheet is not what it was. Before calling that a clash, work out
+     * whether it is a clash at all.
+     *
+     * This used to jump straight to "somebody else published" for any change
+     * arriving while there were unsaved edits here, without ever asking what
+     * the change was. In a parish with one editor that was wrong far more
+     * often than it was right, and it sent somebody looking for a second
+     * person who does not exist. Three of the ways it fired with nobody else
+     * involved:
+     *
+     *   - Google took longer than the five minutes this page waits, so the
+     *     publish was given up on. When it did land, it arrived as a stranger.
+     *   - The same person had the editor open in a second tab, or on a phone,
+     *     and published from there. Both copies agreed; only the bookkeeping
+     *     disagreed.
+     *   - Sheets rewrote a value on the way through — "September 12" stored
+     *     as a date and published back as 9/12/2026 — so what came back was
+     *     not character-for-character what went up.
+     *
+     * The honest test is the last one below, and it is the only one that
+     * amounts to a real clash: the Sheet says something this editor does not
+     * say, and there is unpublished work here that would be lost by taking
+     * it. Everything above that is somebody's own change finding its way
+     * home, and is adopted quietly.
+     *
+     * confirmSig rather than the strict signature throughout, because it
+     * compares dates as dates — see the note above it in live.js.
+     */
+    const incoming = global.Live.confirmSig(live.items);
+    const saysWhatWeSent = publishExpectSig !== null && incoming === publishExpectSig;
+
     if (publishing) {
-      if (global.Live.confirmSig(live.items) === publishExpectSig) {
-        publishing = false;
+      publishing = false;
+      if (saysWhatWeSent) {
         hideBanner();
         adoptLive();
         toast('It’s live — the TV picks it up within a couple of minutes');
         return;
       }
-      // The Sheet changed, but into something we didn't send: somebody else
-      // published in the meantime and their version won.
-      publishing = false;
       conflict = true;
       renderAll();
+      return;
+    }
+
+    if (saysWhatWeSent) {
+      // Our own publish, arriving after this page stopped waiting for it.
+      hideBanner();
+      adoptLive();
+      toast('It’s live — Google took its time republishing');
+      return;
+    }
+
+    // The Sheet now says exactly what is on this screen. However it got
+    // there, there is nothing to reconcile and nothing to warn anybody about.
+    if (incoming === global.Live.confirmSig(items) &&
+        (!speedChanged() || live.slideSeconds === draftSlideSeconds)) {
+      adoptLive();
       return;
     }
 
     if (wasClean) {
       // Nothing of ours to lose — just follow along with whoever published.
       adoptLive();
-      if (booted) toast('Someone else published — this page is now showing what is live');
+      if (booted) toast('The Sheet changed — this page is now showing what is live');
       return;
     }
 
@@ -2210,7 +2256,13 @@
             { label: 'Keep editing them', primary: true, onClick: hideBanner },
           ]);
       } else if (draft && draft.liveSig !== live.sig &&
-                 global.Live.deckSig(draft.items) !== draft.liveSig) {
+                 global.Live.deckSig(draft.items) !== draft.liveSig &&
+                 // ...and the Sheet actually says something different from
+                 // this draft. A draft that matches what is live is simply a
+                 // draft that has already been published — by this person,
+                 // from wherever they were sitting at the time — and there is
+                 // nothing for anybody to decide.
+                 global.Live.confirmSig(draft.items) !== global.Live.confirmSig(live.items)) {
         /*
          * Unpublished work, and the Sheet is no longer what it was when that
          * work was saved.
