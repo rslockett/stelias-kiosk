@@ -1067,8 +1067,10 @@
     } else if (conflict) {
       state = 'conflict';
       pill = 'Out of step';
-      line = 'Somebody else published while you were editing.';
-      sub = 'Your changes are still here, but they were made against an older version.';
+      line = 'The Sheet has changed since these edits were started.';
+      sub = 'Your changes are still here. They were written against an older ' +
+        'version of the Sheet — usually because they were published from ' +
+        'another browser or another device since.';
     } else if (liveSig === null) {
       state = 'loading';
       pill = 'Checking…';
@@ -1138,8 +1140,10 @@
   function renderBanner() {
     if (conflict) {
       showBanner('conflict',
-        'The Sheet changed while you were working — somebody else published. ' +
-        'You can start again from what is live, or keep what you have and publish over it.',
+        'The Sheet is not what it was when these edits were started. That is ' +
+        'usually a publish from another browser or device — it does not need ' +
+        'to be another person. You can start again from what is live, or keep ' +
+        'what you have and publish over it.',
         [
           { label: 'Show me what’s live', onClick: () => { adoptLive(); toast('Loaded what is on the TV'); } },
           { label: 'Keep my version', primary: true, onClick: () => { conflict = false; renderAll(); } },
@@ -2196,7 +2200,17 @@
           ]);
       } else if (draft && draft.liveSig !== live.sig &&
                  global.Live.deckSig(draft.items) !== draft.liveSig) {
-        // Unpublished work, but the Sheet has moved on since it was written.
+        /*
+         * Unpublished work, and the Sheet is no longer what it was when that
+         * work was saved.
+         *
+         * All this knows is that the two differ. It cannot see who changed
+         * it, and for a parish with one person editing it usually was that
+         * person — from the laptop in the office, or a phone, or a browser
+         * they had forgotten was open. Saying "somebody else published" told
+         * them something false about their own parish and left them looking
+         * for a second editor who does not exist.
+         */
         items = draft.items;
         if (draft.slideSeconds) draftSlideSeconds = draft.slideSeconds;
         conflict = true;
