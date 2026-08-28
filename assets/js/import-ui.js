@@ -418,55 +418,6 @@
     });
   }
 
-  /* ------------------------------------------------------------ link check -- */
-
-  function denseUrls(item) {
-    return global.Importer.linkPairs(item.link, item.linkLabel)
-      .map(p => p.url)
-      .filter(url => {
-        if (global.Eml && global.Eml.isTrackingUrl(url)) return true;
-        return global.Slide.qrDensity(url) >= 45;
-      });
-  }
-
-  function shortenedUrls(item) {
-    if (!global.Eml || !global.Eml.isShortenedUrl) return [];
-    return global.Importer.linkPairs(item.link, item.linkLabel)
-      .map(p => p.url)
-      .filter(url => global.Eml.isShortenedUrl(url));
-  }
-
-  /**
-   * Warn about links that will not do what the person scanning them expects.
-   *
-   * Two different faults, and the shortener is the one worth naming out loud:
-   * the QR code scans perfectly and then drops the visitor on an advertising
-   * page with a countdown. From the hall that looks like the parish's screen
-   * is broken. There is nothing to gain by it either — a QR code does not care
-   * how long the address is, it just draws a slightly denser square.
-   */
-  function linkWarning(item) {
-    if (!item.link) return '';
-
-    const short = shortenedUrls(item);
-    if (short.length) {
-      const host = (function () {
-        try { return new URL(short[0]).hostname.replace(/^www\./, ''); }
-        catch (e) { return 'a link shortener'; }
-      })();
-      return (short.length > 1 ? short.length + ' of these links go' : 'This link goes') +
-        ' through ' + host + ', which shows an advert and a countdown before the' +
-        ' real page. Paste the address it actually leads to instead — a QR code' +
-        ' has no trouble with a long one.';
-    }
-
-    const dense = denseUrls(item);
-    if (!dense.length) return '';
-    const many = global.Importer.linkPairs(item.link, item.linkLabel).length > 1;
-    return (many ? dense.length + ' of these links are' : 'This link is') +
-      ' long enough to make a QR code too dense to scan from across the hall.';
-  }
-
   /* ============================================================ the list == */
 
   function badgesFor(item) {
@@ -535,7 +486,6 @@
   }
 
   function editHtml(item) {
-    const warn = linkWarning(item);
     return '' +
       '<div class="item__edit">' +
 
@@ -582,11 +532,6 @@
               'placeholder="Scan to sign up">' + esc(item.linkLabel) + '</textarea>' +
           '</div>' +
         '</div>' +
-
-        (warn ?
-          '<p class="linkwarn">' +
-            '<span>⚠ ' + esc(warn) + '</span>' +
-          '</p>' : '') +
 
         '<div class="grid2" style="margin-top:.8rem">' +
           '<div class="field">' +

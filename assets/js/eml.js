@@ -124,11 +124,23 @@
 
   // Click-tracking wrappers. The href is a 400-character redirect blob, which
   // makes a QR code so dense nobody can scan it from across the hall.
+  // Whole hostnames, or a leading label the wrapper always uses.
+  //
+  // These are matched as labels, not as substrings of the hostname. The
+  // substring version quietly flagged perfectly good addresses: 't.co' is
+  // inside any host ending "t.com" — support.com, market.com — and 'email.'
+  // is inside anything hosted under email.something. Every one of those came
+  // up in the editor as a problem with somebody's link, which is worse than
+  // saying nothing, because the person reading it has no way to tell a real
+  // warning from a wrong one.
   const TRACKER_HOSTS = [
     'links.breezechms.com', 'list-manage.com', 'sendgrid.net', 'mailchi.mp',
-    'click.', 'track.', 'links.', 'email.', 'clicks.', 'sendible',
-    't.co', 'bit.ly/r', 'awstrack.me', 'mandrillapp.com',
+    'sendible.com', 't.co', 'awstrack.me', 'mandrillapp.com',
   ];
+
+  // Hosts that begin with one of these labels are a mailer's click wrapper —
+  // click.example.org, track.example.org — whoever the sender is.
+  const TRACKER_PREFIXES = ['click', 'clicks', 'track', 'links', 'email'];
 
   // Link shorteners. These are not tracking wrappers — the address is short
   // and the QR code is perfectly scannable — but most of them now put an
@@ -159,8 +171,9 @@
     if (/^mailto:/i.test(url)) return false;   // always short, never a tracking wrapper
     if (url.length > 150) return true;
     try {
-      const host = new URL(url).hostname.toLowerCase();
-      return TRACKER_HOSTS.some(t => host.indexOf(t) !== -1);
+      const host = new URL(url).hostname.toLowerCase().replace(/^www\./, '');
+      if (TRACKER_HOSTS.some(t => host === t || host.endsWith('.' + t))) return true;
+      return TRACKER_PREFIXES.some(p => host.startsWith(p + '.'));
     } catch (e) {
       return false;
     }
