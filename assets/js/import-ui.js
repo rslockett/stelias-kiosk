@@ -301,6 +301,19 @@
     conflict = false;
     selected = Math.min(selected, Math.max(0, items.length - 1));
     clearDraft();
+
+    /*
+     * Every banner this editor raises is about work that has not been made
+     * live — a restored draft, a publish that has not landed, a version out
+     * of step with the Sheet. Adopting what is live answers all of them at
+     * once: there is no unpublished work left to have a question about.
+     *
+     * Left standing, the restored-draft banner sat above a status bar reading
+     * "Live — everything here is published", still offering to throw away
+     * changes that had already gone. Two things on one screen contradicting
+     * each other, and the wrong one on top.
+     */
+    hideBanner();
     renderAll();
   }
 
@@ -1068,9 +1081,10 @@
       state = 'conflict';
       pill = 'Out of step';
       line = 'The Sheet has changed since these edits were started.';
-      sub = 'Your changes are still here. They were written against an older ' +
-        'version of the Sheet — usually because they were published from ' +
-        'another browser or another device since.';
+      sub = 'Your changes are still here, written against an older version of ' +
+        'the Sheet — usually a publish from another browser or device, which ' +
+        'does not need to be another person. Make it live to publish over ' +
+        'what is there, or undo to start again from what the TV is showing.';
     } else if (liveSig === null) {
       state = 'loading';
       pill = 'Checking…';
@@ -1137,31 +1151,28 @@
 
   function hideBanner() { bannerKind = null; bannerEl.hidden = true; }
 
-  function renderBanner() {
-    if (conflict) {
-      showBanner('conflict',
-        'The Sheet is not what it was when these edits were started. That is ' +
-        'usually a publish from another browser or device — it does not need ' +
-        'to be another person. You can start again from what is live, or keep ' +
-        'what you have and publish over it.',
-        [
-          { label: 'Show me what’s live', onClick: () => { adoptLive(); toast('Loaded what is on the TV'); } },
-          { label: 'Keep my version', primary: true, onClick: () => { conflict = false; renderAll(); } },
-        ],
-        true);
-      return;
-    }
-    // A conflict that resolved itself is the one thing a redraw may clear.
-    if (bannerKind === 'conflict') hideBanner();
-  }
-
+  /*
+   * Being out of step is a state, not an event, so it is said once — in the
+   * status bar, which is where every other state of this editor is reported.
+   *
+   * There used to be a red banner as well, directly under a status bar
+   * already saying the same thing, and between them four buttons offering
+   * three actions. Two of those buttons did exactly the same job: "Undo my
+   * changes" in the status bar and "Show me what's live" in the banner both
+   * threw the edits away and reloaded the Sheet. Only one of them asked
+   * first. The gentler-sounding one was the one that did it without asking,
+   * which is precisely backwards.
+   *
+   * So the banner is gone. The status bar says what is true and carries the
+   * two actions that resolve it — undo, or publish over the top — and the
+   * one that discards work still asks before it does.
+   */
   /* ---------------------------------------------------------------- render -- */
 
   function renderAll() {
     renderList();
     renderSpeed();
     renderStatus();
-    renderBanner();
     pushPreview();
     saveDraft();
     // Anything that rebuilds the whole list may have brought in announcements
