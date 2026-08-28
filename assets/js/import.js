@@ -720,7 +720,8 @@
 
   /* ---------------------------------------------------------------- tsv -- */
 
-  const COLUMNS = ['Show', 'Title', 'Body', 'Link', 'Link Label', 'Start', 'End', 'Image', 'Order'];
+  const COLUMNS = ['Show', 'Title', 'Body', 'Link', 'Link Label', 'Start', 'End',
+    'Image', 'Order', 'Short Key'];
 
   /** Quote a value only when it needs it, the way spreadsheets expect. */
   function tsvCell(v) {
@@ -753,6 +754,10 @@
         it.end || '',
         it.image || '',
         String(i + 1),      // Order
+        // Set only on an announcement somebody chose to shorten. It lives on
+        // the row rather than in a list of its own, so when the announcement
+        // goes, the short link goes with it and nothing accumulates.
+        it.shortKey || '',
       ]);
   }
 

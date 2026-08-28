@@ -118,6 +118,7 @@
         start: (r.start || '').trim(),
         end: (r.end || '').trim(),
         image: (r.image || '').trim(),
+        shortKey: (r.shortkey || '').trim(),
         _order: (rawOrder === null || isNaN(rawOrder)) ? null : rawOrder,
         _row: i,
       };

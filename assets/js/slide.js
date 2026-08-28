@@ -377,7 +377,10 @@
    * Layout is chosen from what the row actually has in it.
    */
   function buildSlideEl(slide) {
-    const links = parseLinkPairs(slide.link, slide.linkLabel);
+    // qrLink is what the code carries, which is the address itself unless
+    // somebody shortened it — see Deck.shortLinkFor. The caption underneath
+    // is unaffected either way.
+    const links = parseLinkPairs(slide.qrLink || slide.link, slide.linkLabel);
     const hasQr = links.length > 0;
     const hasImg = !!slide.image;
     const layout = hasImg ? 'image' : (hasQr ? 'qr' : 'text');

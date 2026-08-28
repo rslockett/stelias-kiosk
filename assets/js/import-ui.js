@@ -281,6 +281,7 @@
       baseSig: null,
       include: true,
       title: '', body: '', link: '', linkLabel: '', start: '', end: '', image: '',
+      shortKey: '', linkNoteFor: null,
     };
   }
 
@@ -418,6 +419,117 @@
     });
   }
 
+  /* ------------------------------------------------------------ long links -- */
+
+  /*
+   * A link long enough that the QR code stops being scannable.
+   *
+   * This is the one link complaint worth making, and it is measured rather
+   * than guessed: the code is actually generated and its grid counted. Past
+   * about 45 rows of squares the individual squares get small enough that an
+   * older phone, held by somebody standing back from the television, gives
+   * up. Shorter than that and nothing is said, because there is nothing
+   * wrong.
+   *
+   * Nothing is ever rewritten behind anybody's back. The address stays
+   * exactly as it was typed or imported until somebody presses the button.
+   */
+  const DENSE_MODULES = 45;
+
+  function longLinks(item) {
+    if (item.shortKey) return [];        // already dealt with
+    return global.Importer.linkPairs(item.link, item.linkLabel)
+      .map(p => p.url)
+      .filter(url => global.Slide.qrDensity(url) >= DENSE_MODULES);
+  }
+
+  /**
+   * Worth putting a mark on the bar for?
+   *
+   * Dismissing is remembered against the link it was dismissed for, so
+   * "leave it as is" stays quiet through publishing and reopening the editor,
+   * and speaks up again only if the link itself changes. A note that comes
+   * back after being answered is a note people learn to ignore.
+   */
+  function needsAttention(item) {
+    if (!item.link) return false;
+    if (item.linkNoteFor === item.link) return false;
+    return longLinks(item).length > 0;
+  }
+
+  /**
+   * A short key for one announcement's link.
+   *
+   * Derived from the address itself, so pressing the button twice on the same
+   * link gives the same key rather than a second one. Four characters keeps
+   * the whole short address under sixty, which is where a QR code is
+   * comfortable again.
+   */
+  function shortKeyFor(url, taken) {
+    const base = global.Deck.hash(String(url)).slice(0, 4);
+    let key = base, n = 1;
+    while (taken.indexOf(key) !== -1) key = base + (++n);
+    return key;
+  }
+
+  function shortenItemLink(item, list) {
+    const urls = global.Importer.linkPairs(item.link, item.linkLabel).map(p => p.url);
+    // One address only: a slide with two QR codes has two destinations, and
+    // one key on the row cannot stand for both.
+    if (urls.length !== 1) return false;
+    const taken = list.map(it => it.shortKey).filter(Boolean);
+    item.shortKey = shortKeyFor(urls[0], taken);
+    return true;
+  }
+
+  /** The short address itself, for showing somebody what they just made. */
+  function shortLinkText(item) {
+    const site = String((global.KIOSK_CONFIG && global.KIOSK_CONFIG.siteUrl) || '').trim()
+      || location.href.replace(/[^/]*(?:\?.*)?(?:#.*)?$/, '');
+    return site.replace(/\/*$/, '/') + 'go.html?k=' + encodeURIComponent(item.shortKey);
+  }
+
+  /** The note under the link fields, when there is something to say. */
+  function linkNoteHtml(item) {
+    if (item.shortKey) {
+      return '<p class="linkwarn linkwarn--done">' +
+        '<span>Shortened. The QR code will point at ' +
+          '<code>' + esc(shortLinkText(item)) + '</code>, which goes straight ' +
+          'to your link — no advertising page in between.</span>' +
+        '<button class="btn btn--ghost btn--sm" type="button" data-act="unshorten">' +
+          'Use the full address' +
+        '</button>' +
+      '</p>';
+    }
+
+    if (!needsAttention(item)) return '';
+
+    const many = global.Importer.linkPairs(item.link, item.linkLabel).length > 1;
+    if (many) {
+      // Nothing to offer, so nothing is claimed. Two addresses on one row
+      // cannot share a single short key, and inventing a second column for
+      // the rare case is not worth what it costs everybody else.
+      return '<p class="linkwarn">' +
+        '<span>Long link — the QR codes on this slide will be dense and ' +
+          'harder to scan from across the hall. Shortening only works on a ' +
+          'slide with one link.</span>' +
+        '<button class="btn btn--ghost btn--sm" type="button" data-act="keeplink">' +
+          'Leave it as is' +
+        '</button>' +
+      '</p>';
+    }
+
+    return '<p class="linkwarn">' +
+      '<span>Long link — shorten it? The QR code will be easier to scan from ' +
+        'across the hall. It will point at this parish\u2019s own address and ' +
+        'go straight to your link.</span>' +
+      '<button class="btn btn--sm" type="button" data-act="shorten">Shorten it</button>' +
+      '<button class="btn btn--ghost btn--sm" type="button" data-act="keeplink">' +
+        'Leave it as is' +
+      '</button>' +
+    '</p>';
+  }
+
   /* ============================================================ the list == */
 
   function badgesFor(item) {
@@ -433,6 +545,10 @@
 
     const m = meterFor(item);
     if (m.level === 'over') out.push('<span class="badge badge--over">Too long</span>');
+
+    if (needsAttention(item)) {
+      out.push('<span class="badge badge--attn">Needs attention</span>');
+    }
 
     return out.join('');
   }
@@ -533,6 +649,8 @@
           '</div>' +
         '</div>' +
 
+        linkNoteHtml(item) +
+
         '<div class="grid2" style="margin-top:.8rem">' +
           '<div class="field">' +
             '<label class="field__label">Don’t show before <small>— optional</small></label>' +
@@ -616,6 +734,38 @@
     name.textContent = title || 'Untitled announcement';
     name.classList.toggle('item__name--blank', !title);
     refreshMeter(card, item);
+    refreshLinkNote(card, item);
+  }
+
+  /**
+   * Keep the note under the link fields in step with what is typed above it,
+   * without rebuilding the card — that would take the cursor out of the box
+   * somebody is still typing in.
+   */
+  function refreshLinkNote(card, item) {
+    const edit = card.querySelector('.item__edit');
+    if (!edit) return;                       // card is closed; nothing to keep
+
+    const html = linkNoteHtml(item);
+    const existing = edit.querySelector('.linkwarn');
+
+    if (!html) { if (existing) existing.remove(); return; }
+    if (existing) {
+      // Same words already on screen — leave the element alone so a button
+      // somebody is reaching for does not move out from under them.
+      const fresh = document.createElement('div');
+      fresh.innerHTML = html;
+      if (fresh.firstElementChild.outerHTML !== existing.outerHTML) {
+        existing.replaceWith(fresh.firstElementChild);
+      }
+      return;
+    }
+    // The note sits directly above the dates.
+    const dates = edit.querySelector('.grid2:last-of-type') ||
+      edit.querySelector('.grid2');
+    const fresh = document.createElement('div');
+    fresh.innerHTML = html;
+    edit.insertBefore(fresh.firstElementChild, dates);
   }
 
   function select(i) {
@@ -1074,6 +1224,25 @@
     if (act === 'select') { select(i); return; }
 
     if (act === 'rewrite') { rewriteOnCard(i); return; }
+
+    if (act === 'shorten') {
+      if (shortenItemLink(items[i], items)) {
+        toast('Shortened \u2014 the QR code now points at ' + shortLinkText(items[i]));
+      }
+      renderAll(); saveDraft(); return;
+    }
+
+    if (act === 'unshorten') {
+      items[i].shortKey = '';
+      // Asking again straight away would undo the choice somebody just made.
+      items[i].linkNoteFor = items[i].link;
+      renderAll(); saveDraft(); return;
+    }
+
+    if (act === 'keeplink') {
+      items[i].linkNoteFor = items[i].link;
+      renderAll(); saveDraft(); return;
+    }
     if (act === 'rewrite-retry') { rewriteOnCard(i, { noCache: true }); return; }
 
     if (act === 'tighten-use') {
@@ -1371,6 +1540,8 @@
       link: it.link || '',
       linkLabel: it.linkLabel || '',
       end: it.end || '',
+      shortKey: '',
+      linkNoteFor: null,
     }));
 
     tidyAllLinks(fresh);

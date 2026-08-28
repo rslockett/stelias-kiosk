@@ -427,6 +427,7 @@ button, input, textarea, select { font: inherit; color: inherit; }
 .badge--new     { background: var(--good-pale);  color: var(--good);  border-color: rgba(63, 125, 63, 0.35); }
 .badge--edited  { background: var(--tight-pale); color: var(--tight); border-color: rgba(176, 125, 16, 0.4); }
 .badge--over    { background: var(--over-pale);  color: var(--over);  border-color: rgba(161, 45, 18, 0.35); }
+.badge--attn    { background: #fdf3e0;           color: #8a5a12;       border-color: rgba(138, 106, 58, 0.4); }
 .badge--dated   { background: #f1eeec;           color: var(--ink-soft); border-color: var(--line); }
 .badge--off     { background: #f1eeec;           color: var(--ink-soft); border-color: var(--line); }
 .badge--ai      { background: var(--navy);        color: #fff;          border-color: var(--navy); }
@@ -776,6 +777,13 @@ textarea:focus, input[type="text"]:focus {
   flex-wrap: wrap;
 }
 .linkwarn span { flex: 1 1 14rem; }
+
+/* Not a complaint — a note saying the thing is now handled. */
+.linkwarn--done { background: #eef3ee; border-left-color: #4a7a52; }
+.linkwarn--done code {
+  font-size: 0.85em; background: rgba(0, 0, 0, 0.05);
+  padding: 0.05rem 0.3rem; border-radius: 3px; word-break: break-all;
+}
 
 /* ================================================================= preview == */
 

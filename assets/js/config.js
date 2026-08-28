@@ -167,6 +167,22 @@ window.KIOSK_CONFIG = {
   },
 
 
+  /* --------------------------------------------------------------------------
+     WHERE THIS SITE LIVES  — used to build short links
+
+     The address of this kiosk's own folder, ending in a slash. The editor
+     uses it to build a short link for an announcement whose real address is
+     too long to make a QR code anybody can scan, and go.html — sitting in
+     this same folder — sends whoever scans it straight on to the real page.
+
+     Leave blank to work it out from whatever address the page is open at,
+     which is right almost always. Set it when the kiosk is opened from a
+     file on the Pi rather than over the web, because a short link built from
+     a file:// address means nothing to a phone.
+  -------------------------------------------------------------------------- */
+  siteUrl: 'https://rslockett.github.io/stelias-kiosk/',
+
+
   // How many upcoming Sundays to show, both on the TV and on signup.html.
   // (The sign-up column on the TV only ever shows the first 6 of these,
   // however high this is set — see RAIL_ROW_CAP in signup-data.js. Six is

@@ -69,7 +69,12 @@
 var SHARED_SECRET = 'change-me-first';   // <-- set this before deploying
 var SHEET_NAME = '';                      // blank = the first tab in the file
 
-var HEADERS = ['Show', 'Title', 'Body', 'Link', 'Link Label', 'Start', 'End', 'Image', 'Order'];
+// 'Short Key' is set only on an announcement somebody chose to shorten in
+// the editor. go.html reads it back to forward a scan to the real address.
+// It lives on the announcement's own row on purpose: when the announcement
+// goes, its short link goes with it, and no list of these builds up.
+var HEADERS = ['Show', 'Title', 'Body', 'Link', 'Link Label', 'Start', 'End',
+               'Image', 'Order', 'Short Key'];
 
 // Three extra columns, written after the announcements. Two record who last
 // put something on the screen and when; the editor reads them so everybody

@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>St. Elias — Opening the page…</title>
+<meta name="robots" content="noindex">
+
+<!--
+  go.html — the short address behind a QR code.
+
+  A long web address makes a dense QR code, and a dense code is the one an
+  older phone gives up on from across a hall. So an announcement can carry a
+  short address instead: this page, plus a key.
+
+  It reads the same published Sheet the television reads, finds the row whose
+  Short Key matches, and sends the visitor on to the real address. Nobody
+  else's server is involved, which is the whole point — a public shortener
+  scans just as well and then parks somebody on an advertising page with a
+  countdown, holding a paper cup, wondering whether the parish screen is
+  broken.
+
+  The short link lives on the announcement's own row. When the announcement
+  goes, its short link goes with it, so there is no list of these anywhere to
+  grow forever and no housekeeping for anybody to remember. The other side of
+  that bargain: a short link only works while its announcement is up. It is
+  meant for the television, not for print.
+-->
+
+<link rel="stylesheet" href="assets/css/fonts.css">
+<link rel="icon" href="assets/img/logo-se.png">
+<style>
+  :root { color-scheme: light; }
+  body {
+    margin: 0; min-height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    background: #f6efe4; color: #123055;
+    font-family: 'EB Garamond', Georgia, serif;
+    text-align: center; padding: 2rem;
+  }
+  .card { max-width: 30rem; }
+  .mark { width: 74px; height: auto; margin-bottom: 1.4rem; opacity: .9; }
+  h1 { font-size: 1.5rem; font-weight: 600; margin: 0 0 .6rem; }
+  p { font-size: 1.05rem; line-height: 1.5; margin: 0 0 1rem; color: #4a4036; }
+  a.go {
+    display: inline-block; margin-top: .4rem; padding: .7rem 1.4rem;
+    background: #123055; color: #fff; text-decoration: none; border-radius: 4px;
+    font-family: system-ui, -apple-system, Helvetica, Arial, sans-serif;
+    font-size: .95rem;
+  }
+  .small { font-size: .9rem; color: #8a6a3a; }
+</style>
+</head>
+<body>
+
+  <div class="card">
+    <img class="mark" src="assets/img/cross-byzantine.png" alt="">
+    <h1 id="head">Opening the page…</h1>
+    <p id="note">One moment.</p>
+    <p id="actions"></p>
+  </div>
+
+  <script src="assets/js/config.js"></script>
+  <script src="assets/js/csv.js"></script>
+  <script src="assets/js/deck.js"></script>
+  <script>
+  (function () {
+    'use strict';
+
+    const headEl = document.getElementById('head');
+    const noteEl = document.getElementById('note');
+    const actionsEl = document.getElementById('actions');
+
+    function stop(head, note, extra) {
+      headEl.textContent = head;
+      noteEl.textContent = note;
+      actionsEl.innerHTML = extra || '';
+    }
+
+    function key() {
+      const m = location.search.match(/[?&]k=([^&]*)/);
+      return m ? decodeURIComponent(m[1]).trim() : '';
+    }
+
+    /*
+     * Only ordinary web addresses are followed.
+     *
+     * This page sends a visitor wherever a cell in the Sheet says, so it
+     * checks what it is about to open. A "javascript:" address in that cell
+     * would otherwise run as code on this site, and anybody who can edit the
+     * Sheet — or anybody who talks somebody with access into pasting
+     * something — could then do it. http and https only, and nothing else.
+     */
+    function safeDestination(url) {
+      try {
+        const u = new URL(url, location.href);
+        return (u.protocol === 'http:' || u.protocol === 'https:') ? u.href : '';
+      } catch (e) {
+        return '';
+      }
+    }
+
+    async function run() {
+      const k = key();
+      if (!k) {
+        stop('Nothing to open',
+             'This address needs to come from a QR code on the parish screen.');
+        return;
+      }
+
+      let rows;
+      try {
+        rows = window.CSV.parseObjects(await window.Deck.fetchCsv(window.KIOSK_CONFIG.sheetCsvUrl));
+      } catch (e) {
+        stop('Could not reach the announcements',
+             'The parish announcements could not be read just now. Please try again in a moment.');
+        return;
+      }
+
+      const row = rows.find(r => String(r.shortkey || '').trim() === k);
+      const dest = row ? safeDestination(String(row.link || '').trim().split('\n')[0]) : '';
+
+      if (!dest) {
+        // Almost always an announcement that has since come down, which is
+        // worth saying plainly rather than showing an error nobody can act on.
+        stop('That announcement has come down',
+             'The page this code pointed to is no longer among the parish announcements.');
+        return;
+      }
+
+      headEl.textContent = 'Opening the page…';
+      noteEl.textContent = row.title ? String(row.title).trim() : '';
+      actionsEl.innerHTML = '<a class="go" id="manual">Continue</a>' +
+        '<br><span class="small">Taking you there now.</span>';
+      document.getElementById('manual').href = dest;
+
+      // replace() rather than assign() so the back button returns to whatever
+      // the visitor was looking at before they scanned, not to this page,
+      // which would bounce them forward again.
+      location.replace(dest);
+    }
+
+    run();
+  })();
+  </script>
+</body>
+</html>

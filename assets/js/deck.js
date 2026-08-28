@@ -65,6 +65,32 @@
     return isNaN(d) ? null : atMidnight(d.getFullYear(), d.getMonth(), d.getDate());
   }
 
+  /**
+   * The address a QR code should carry for this announcement.
+   *
+   * A long address makes a dense QR code, and a dense code is one an older
+   * phone gives up on from across a hall. Where somebody has chosen to
+   * shorten one in the editor, the code carries this parish's own go.html
+   * instead, which reads the very same published Sheet, finds this row, and
+   * forwards to the real address. No third party stands in the middle, so
+   * there is no advertising page and no countdown between the scan and the
+   * page somebody wanted.
+   */
+  function shortLinkFor(link, key) {
+    if (!link || !key) return link;
+    // One address only. Two QR codes on a slide are two separate addresses,
+    // and one short key cannot stand for both.
+    if (link.indexOf('\n') !== -1) return link;
+    return siteBase() + 'go.html?k=' + encodeURIComponent(key);
+  }
+
+  /** This kiosk's own folder, with a trailing slash. */
+  function siteBase() {
+    const configured = String((CFG && CFG.siteUrl) || '').trim();
+    if (configured) return configured.replace(/\/*$/, '/');
+    return location.href.replace(/[^/]*(?:\?.*)?(?:#.*)?$/, '');
+  }
+
   function atMidnight(y, mo, d) {
     const dt = new Date(y, mo, d, 0, 0, 0, 0);
     return isNaN(dt) ? null : dt;
@@ -125,6 +151,10 @@
     const link = (row.link || '').trim();
 
     return {
+      // What the QR code actually encodes. Normally the address itself; for
+      // an announcement somebody shortened, this parish's own go.html, which
+      // forwards straight to that address — see shortLinkFor.
+      qrLink: shortLinkFor(link, (row.shortkey || '').trim()),
       title,
       body,
       link,
