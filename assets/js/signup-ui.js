@@ -273,6 +273,11 @@
       if (openDate === null) render(lastSlots);
       if (conflictLabel) {
         showNotice('Someone else just took ' + conflictLabel + ' — your sign-up wasn’t saved. Please pick another Sunday.', 'error');
+      } else {
+        // Clears whatever was showing before this fetch succeeded — the
+        // initial "Loading…" notice, or a stale error from a retry that
+        // has since recovered.
+        showNotice('');
       }
     } catch (e) {
       if (!lastSlots.length) {
@@ -282,6 +287,10 @@
   }
 
   if (type.csvUrl) {
+    // The retry that fixes an intermittent Google blip (see fetchCsv) can
+    // take a couple of seconds to land. An empty page for that long reads
+    // as broken rather than loading — say so instead.
+    showNotice('Loading Sundays…');
     refresh();
     setInterval(refresh, 30 * 1000);
   }
