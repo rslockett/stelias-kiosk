@@ -241,9 +241,13 @@
         return await fetchOnce(url);
       } catch (err) {
         lastErr = err;
-        // An unpublished Sheet is a real answer, not a blip — asking again
-        // will get the same web page, so stop and say so.
-        if (/web page instead of CSV/.test(err.message)) throw err;
+        // NOTE: this used to give up immediately on "web page instead of
+        // CSV" on the theory that an unpublished tab is a real, stable
+        // answer rather than a blip. Measured against the live Sheet, that
+        // theory doesn't hold — the exact same published, working tab
+        // returns that same HTML error page intermittently, recovering on
+        // the very next request seconds later. So this retries it exactly
+        // like every other failure now.
       }
     }
     throw lastErr;

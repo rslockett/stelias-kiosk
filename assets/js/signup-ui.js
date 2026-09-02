@@ -121,11 +121,12 @@
   /* ------------------------------------------------------------ fetching -- */
 
   async function fetchSlots() {
-    const url = type.csvUrl + (type.csvUrl.indexOf('?') === -1 ? '?' : '&') + '_ts=' + Date.now();
-    const res = await fetch(url, { cache: 'no-store' });
-    if (!res.ok) throw new Error('responded ' + res.status);
-    const text = await res.text();
-    if (/^\s*</.test(text)) throw new Error('got a web page instead of CSV');
+    // Deck.fetchCsv rather than a bare fetch: it retries the intermittent
+    // "web page instead of CSV" response Google's publish endpoint sometimes
+    // answers a perfectly healthy, published tab with — a single unretried
+    // fetch here is exactly what put "Could not load the sign-up sheet" in
+    // front of someone scanning a QR code that was never actually broken.
+    const text = await window.Deck.fetchCsv(type.csvUrl);
     const rows = window.CSV.parseObjects(text);
     return window.SignupData.buildSlots(rows, CFG.signupWeeksAhead || 6, { markFasting: type.markFasting });
   }
