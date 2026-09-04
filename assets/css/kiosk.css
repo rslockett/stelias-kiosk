@@ -421,10 +421,16 @@ body::after {
   background: var(--gold-deep);
 }
 
-/* A schedule set in two columns, because it would not otherwise fit on one
-   slide at a size anybody could read. Reached only from fitToBox in slide.js,
-   and only after one column has been tried and found too tall — every
+/* A schedule set in columns, because it would not otherwise fit on one slide
+   at a size anybody could read. Reached only from fitToBox in slide.js, and
+   only after one column has been tried and found too tall — every
    announcement that already fits is left exactly as it was.
+
+   A grid rather than CSS multi-column: multicol fills each column to the brim
+   before starting the next, which decides the split without ever asking how
+   tall the pieces are, and leaves one column running well below the other.
+   slide.js works the split out by measuring instead, and needs real columns to
+   put the answer into.
 
    The leading and the gaps between lines tighten here as well. A day and its
    services are a group of three or four short lines, and paragraph spacing
@@ -432,24 +438,37 @@ body::after {
    between one day and the next. The space that matters is the one *between
    days*, which is why that is the one kept. */
 .slide__body--columns {
-  display: block;
+  display: grid;
   width: 100%;
-  column-count: 2;
-  column-gap: 3em;
+  gap: 0 3em;
   line-height: 1.25;
+
+  /* Whatever is left over after the split is shared out top and bottom rather
+     than dropped under the shorter column. Two columns of a real schedule are
+     never exactly the same height — one day has three services and the next
+     has one — and hanging both from the top makes that difference read as a
+     column that failed to fill rather than a week that is shaped that way. */
+  align-items: center;
 }
+
+/* The space between days is a gap rather than a margin on each day, so that a
+   column is exactly its days plus the gaps between them. A trailing margin on
+   whichever day happens to fall last is the sort of thing that makes a column
+   measure taller than it looks, and the split is decided by that measurement. */
+.slide__col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7em;
+  min-width: 0;
+}
+
 .slide__body--columns p { margin: 0 0 0.1em; }
 .slide__body--columns .slide__sub { margin-top: 0; }
 
-/* Keeping each day whole is the whole point: a heading stranded at the foot
-   of one column with its services at the head of the next reads as two
-   different days, and somebody misses a service over it. */
-.slide__group {
-  break-inside: avoid;
-  -webkit-column-break-inside: avoid;
-  margin: 0 0 0.7em;
-}
-.slide__group:last-child { margin-bottom: 0; }
+/* Keeping each day whole is the whole point: a heading in one column with its
+   services at the head of the next reads as two different days, and somebody
+   misses a service over it. */
+.slide__group { margin: 0; }
 
 /* A sub-heading inside one announcement — a day in a service schedule, a
    section in a longer notice. Set in the sans face so it reads as a label

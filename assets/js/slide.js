@@ -640,7 +640,16 @@
     // centres its content vertically, and overflow that spills off the *top*
     // doesn't show up in the container's scrollHeight — so asking the container
     // would quietly under-report and let text run off the screen.
-    const fits = () => fitEl.scrollHeight <= mainEl.clientHeight + 1;
+    //
+    // Where the body has been divided, the division is redone here rather than
+    // once at the start: how tall a day is depends on how much it wraps, which
+    // depends on the size being tried. Balancing at one size and measuring at
+    // another is how a column ends up half empty.
+    let rebalance = null;
+    const fits = () => {
+      if (rebalance) rebalance();
+      return fitEl.scrollHeight <= mainEl.clientHeight + 1;
+    };
 
     // The largest size between the floor and the ceiling at which the words
     // still fit, leaving the element set to it.
@@ -669,11 +678,13 @@
       // schedule by anybody's standards. Narrower columns wrap more, so more
       // of them is not automatically better and each count is measured.
       for (const count of [2, 3]) {
-        const undo = columnise(fitEl, count);
-        if (!undo) break;                // too narrow to divide any further
-        const divided = search();
-        if (fits()) { px = divided; columns = count; break; }
-        undo();
+        const divided = columnise(fitEl, count);
+        if (!divided) break;             // too narrow to divide any further
+        rebalance = divided.balance;
+        const px2 = search();
+        if (fits()) { px = px2; columns = count; break; }
+        rebalance = null;
+        divided.undo();
         px = search();
       }
     }
@@ -696,15 +707,20 @@
   /**
    * Set a headed body — a schedule, most of the time — in `count` columns.
    *
-   * Returns a function that puts it back, or null if the body is the wrong
-   * shape for it. Prose in two columns is a newspaper rather than an
-   * announcement, so this wants headed groups and enough of them to divide
-   * evenly; and each group is kept whole, because a day heading in one column
-   * with its services in the next is not a schedule anybody can read.
+   * Returns { balance, undo }, or null if the body is the wrong shape for it.
+   * Prose in columns is a newspaper rather than an announcement, so this wants
+   * headed groups and enough of them to divide; and each group is kept whole,
+   * because a day heading in one column with its services in the next is not a
+   * schedule anybody can read.
    *
-   * The caller decides whether to keep the result: two columns of heavily
-   * wrapped lines can be taller than one column of unwrapped ones, and the
-   * only reliable way to know is to measure both.
+   * The columns are built out rather than left to CSS multi-column, which
+   * fills each column to the brim before starting the next and so decides the
+   * split without ever asking how tall the pieces are. `balance` is what asks:
+   * see splitEvenly below.
+   *
+   * The caller decides whether to keep the result: columns of heavily wrapped
+   * lines can be taller than one column of unwrapped ones, and the only
+   * reliable way to know is to measure both.
    */
   function columnise(fitEl, count) {
     const bodyEl = fitEl.querySelector('.slide__body');
@@ -723,20 +739,93 @@
     if (headed < 3 || groups.length < count * 2) return null;
 
     const before = bodyEl.innerHTML;
-    bodyEl.replaceChildren(...groups.map(nodes => {
+
+    const boxes = groups.map(nodes => {
       const section = document.createElement('section');
       section.className = 'slide__group';
       section.append(...nodes);
       return section;
-    }));
+    });
+    const cols = [];
+    for (let i = 0; i < count; i++) {
+      const col = document.createElement('div');
+      col.className = 'slide__col';
+      cols.push(col);
+    }
+    bodyEl.replaceChildren(...cols);
     bodyEl.classList.add('slide__body--columns');
-    bodyEl.style.columnCount = count;
+    bodyEl.style.gridTemplateColumns = 'repeat(' + count + ', 1fr)';
 
-    return () => {
-      bodyEl.classList.remove('slide__body--columns');
-      bodyEl.style.columnCount = '';
-      bodyEl.innerHTML = before;
+    let current = null;                 // the split the columns are showing
+
+    const balance = () => {
+      const gap = parseFloat(getComputedStyle(cols[0]).rowGap) || 0;
+      const wanted = splitEvenly(boxes.map(b => b.getBoundingClientRect().height),
+                                 gap, count);
+      if (current && wanted.every((b, i) => b === current[i])) return;
+      for (let c = 0; c < count; c++) {
+        cols[c].replaceChildren(...boxes.slice(wanted[c], wanted[c + 1]));
+      }
+      current = wanted;
     };
+
+    // Everything starts in the first column so the groups have a width to be
+    // measured at; balance() moves them where they belong.
+    cols[0].append(...boxes);
+
+    return {
+      balance,
+      undo: () => {
+        bodyEl.classList.remove('slide__body--columns');
+        bodyEl.style.gridTemplateColumns = '';
+        bodyEl.innerHTML = before;
+      },
+    };
+  }
+
+  /**
+   * Divide a list of heights into `count` runs, keeping the order, so that the
+   * tallest run is as short as it can be. A run of k days stands k-1 gaps
+   * tall on top of the days themselves, which is what `gap` is for — leave it
+   * out and a run of many short days measures shorter than it renders.
+   *
+   * The order is not negotiable — a week of services read down one column and
+   * on down the next is still a week, and shuffled is not — so the only choice
+   * is where to cut. With a handful of days that is few enough combinations to
+   * simply work out the best one rather than approximate it.
+   *
+   * Returns the cut points, `count + 1` of them, starting at 0 and ending at
+   * the number of groups.
+   */
+  function splitEvenly(heights, gap, count) {
+    const n = heights.length;
+    const upto = [0];
+    heights.forEach(h => upto.push(upto[upto.length - 1] + h));
+    const run = (i, j) => upto[j] - upto[i] + (j - i - 1) * gap;
+
+    // tallest[c][i] — the shortest possible tallest run, putting the first i
+    // groups into c columns. cutAt remembers where that run began.
+    const tallest = [];
+    const cutAt = [];
+    for (let c = 0; c <= count; c++) {
+      tallest.push(new Array(n + 1).fill(Infinity));
+      cutAt.push(new Array(n + 1).fill(0));
+    }
+    tallest[0][0] = 0;
+
+    for (let c = 1; c <= count; c++) {
+      for (let i = c; i <= n; i++) {
+        for (let j = c - 1; j < i; j++) {
+          const worst = Math.max(tallest[c - 1][j], run(j, i));
+          if (worst < tallest[c][i]) { tallest[c][i] = worst; cutAt[c][i] = j; }
+        }
+      }
+    }
+
+    const cuts = new Array(count + 1);
+    cuts[count] = n;
+    for (let c = count; c >= 1; c--) cuts[c - 1] = cutAt[c][cuts[c]];
+    return cuts;
   }
 
   /**

@@ -534,9 +534,34 @@
       text: bodyEl.textContent,
       groups: Array.from(el.querySelectorAll('.slide__group'))
                    .map(g => g.textContent.trim()),
+      // Heights in reading order, and how many groups each column took, so a
+      // check can work out for itself whether a better split was available.
+      heights: Array.from(el.querySelectorAll('.slide__group'))
+                    .map(g => g.getBoundingClientRect().height),
+      perColumn: Array.from(el.querySelectorAll('.slide__col'))
+                      .map(c => c.children.length),
+      columnHeights: Array.from(el.querySelectorAll('.slide__col'))
+                          .map(c => c.getBoundingClientRect().height),
+      // The space a column puts between one day and the next, which any
+      // arithmetic about column heights has to include.
+      gap: (() => {
+        const col = el.querySelector('.slide__col');
+        return col ? parseFloat(getComputedStyle(col).rowGap) || 0 : 0;
+      })(),
     };
     box.remove();
     return out;
+  }
+
+  /** The shortest possible tallest column, over every way of cutting in two. */
+  function bestPossibleTallest(heights, gap) {
+    const run = part => part.reduce((a, b) => a + b, 0) + (part.length - 1) * gap;
+    let best = Infinity;
+    for (let cut = 1; cut < heights.length; cut++) {
+      best = Math.min(best, Math.max(run(heights.slice(0, cut)),
+                                     run(heights.slice(cut))));
+    }
+    return best;
   }
 
   test('a week of services is set in columns rather than cut', async () => {
@@ -548,6 +573,11 @@
       Math.round(r.result.px) + 'px, so this check is no longer testing anything');
     assert(r.result.trimmed === false,
       'the schedule was still cut short even in ' + r.result.columns + ' columns');
+
+    const tallest = Math.max.apply(null, r.columnHeights);
+    assert(tallest <= bestPossibleTallest(r.heights, r.gap) + 2,
+      'the columns were split ' + r.perColumn.join('/') + ', which is not the ' +
+      'evenest split the days allow');
 
     // Every day in the Sheet reaches the screen, which is the whole point.
     ['Sept. 6', 'Sept. 7', 'Sept. 8', 'Sept. 9', 'Sept. 12', 'Sept. 13'].forEach(day => {
@@ -565,6 +595,75 @@
         'a day heading was left as a group of its own \u2014 its services can now ' +
         'fall into the next column: ' + JSON.stringify(g));
     });
+  });
+
+  /*
+   * A parish week is not six days of the same size — the Sunday carries half
+   * the services in it. Giving each column the same *number* of days therefore
+   * gives them very different heights, which is exactly what CSS multi-column
+   * does and what this fixture is shaped to catch: three days a side would
+   * leave one column towering over the other, and two-and-four does not.
+   */
+  const LOPSIDED_WEEK = [
+    ['Sunday, Sept. 6', 'Orthros - 8:30 AM', 'Divine Liturgy - 9:30 AM',
+     'Church School - 11:15 AM', 'Catechism - 12:30 PM', 'Paraklesis - 5:00 PM',
+     'Great Vespers - 6:30 PM'],
+    ['Monday, Sept. 7', 'Vespers - 6:00 PM'],
+    ['Tuesday, Sept. 8', 'Divine Liturgy - 10:00 AM'],
+    ['Wednesday, Sept. 9', 'Vespers - 6:00 PM'],
+    ['Thursday, Sept. 10', 'Paraklesis - 6:00 PM'],
+    ['Friday, Sept. 11', 'Akathist - 6:00 PM'],
+  ].map(([day, ...services]) => ['**' + day + '**'].concat(services).join('\n'))
+   .join('\n\n');
+
+  test('the columns are divided as evenly as the days allow', async () => {
+    await ensureKioskCss();
+    const r = fitBodyInBox({ title: 'Services This Week', body: LOPSIDED_WEEK },
+                           STAGE_W, STAGE_H);
+    assert(r.result.columns === 2,
+      'expected two columns, got ' + (r.result.columns || 'one'));
+
+    // No other way of cutting this week in two would have left a shorter
+    // tallest column. That is the promise the balancing makes.
+    const tallest = Math.max.apply(null, r.columnHeights);
+    const best = bestPossibleTallest(r.heights, r.gap);
+    assert(tallest <= best + 2,
+      'the columns were split ' + r.perColumn.join('/') + ', leaving a ' +
+      Math.round(tallest) + 'px column where ' + Math.round(best) +
+      'px was available');
+
+    // And specifically not down the middle, which is what it looks like when
+    // the split is counting days instead of measuring them.
+    assert(r.perColumn[0] !== r.perColumn[1],
+      'this week is lopsided on purpose; an even split of it means the ' +
+      'heights are not being measured at all');
+  });
+
+  test('a full Holy Week still fits without being cut', async () => {
+    await ensureKioskCss();
+    const holyWeek = [
+      ['Palm Sunday, April 12', 'Orthros - 8:30 AM', 'Divine Liturgy - 9:30 AM',
+       'Bridegroom Matins - 6:30 PM'],
+      ['Holy Monday, April 13', 'Presanctified Liturgy - 9:00 AM',
+       'Bridegroom Matins - 6:30 PM'],
+      ['Holy Tuesday, April 14', 'Presanctified Liturgy - 9:00 AM',
+       'Bridegroom Matins - 6:30 PM'],
+      ['Holy Wednesday, April 15', 'Presanctified Liturgy - 9:00 AM',
+       'Holy Unction - 6:30 PM'],
+      ['Holy Thursday, April 16', 'Vesperal Liturgy - 9:00 AM',
+       'The Twelve Gospels - 6:30 PM'],
+      ['Holy Friday, April 17', 'Royal Hours - 9:00 AM', 'Apokathelosis - 3:00 PM',
+       'Lamentations - 6:30 PM'],
+      ['Holy Saturday, April 18', 'Vesperal Liturgy - 9:00 AM',
+       'Resurrection Service - 11:30 PM'],
+      ['Pascha, April 19', 'Agape Vespers - 12:00 PM'],
+    ].map(([day, ...services]) => ['**' + day + '**'].concat(services).join('\n'))
+     .join('\n\n');
+
+    const r = fitBodyInBox({ title: 'Services This Week', body: holyWeek },
+                           STAGE_W, STAGE_H);
+    assert(r.result.trimmed === false, 'Holy Week was cut short');
+    assert(r.text.indexOf('Pascha') !== -1, 'Pascha never made it onto the slide');
   });
 
   test('an ordinary announcement is not turned into a newspaper', async () => {
@@ -731,7 +830,11 @@
     let passed = 0;
     const failures = [];
     for (const t of T) {
-      try { t.fn(); passed++; report(true, t.name); }
+      // Awaited, because several of these checks fetch a file before they can
+      // say anything. Without the await an async check hands back a promise,
+      // the promise is counted as a pass, and whatever it went on to find is
+      // reported to nobody -- a green page that has not checked anything.
+      try { await t.fn(); passed++; report(true, t.name); }
       catch (err) { failures.push({ name: t.name, err: err }); report(false, t.name, err); }
     }
     return { passed: passed, failed: failures.length, failures: failures, items: items };
