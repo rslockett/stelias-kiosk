@@ -410,6 +410,64 @@
       'shrunk past what a phone can read: ' + Math.round(tight.frameWidth) + 'px');
   });
 
+  /*
+   * A schedule too long for one screen gets trimmed. The trim used to cut
+   * wherever the words ran out, which on a real "Services This Week" row
+   * landed inside "**Saturday, Sept. 12**" and put "**Saturday, Sept." on the
+   * TV \u2014 asterisks and all, with nothing underneath it. Where exactly the
+   * cut falls depends on the screen, so every cut is checked rather than the
+   * one that happened to be reported.
+   */
+  const WEEK_OF_SERVICES = [
+    '**Sunday, Sept. 6**',
+    'Orthros - 8:30 AM',
+    'Divine Liturgy - 9:30 AM (Miracle of the Archangel Michael in Colossae)',
+    '',
+    '**Monday, Sept. 7**',
+    'Great Vespers - 6:00 PM \u2013 Romanian Orthodox Church, Cedar Park',
+    '',
+    '**Tuesday, Sept. 8**',
+    'Divine Liturgy - 10:00 AM (Nativity of the Theotokos) \u2013 Romanian Orthodox Church, Cedar Park',
+    '',
+    '**Wednesday, Sept. 9**',
+    'Vespers - 6:00 PM',
+    '',
+    '**Saturday, Sept. 12**',
+    'Great Vespers - 5:00pm',
+    '',
+    '**Sunday, Sept. 13**',
+    'Orthros - 8:30 AM',
+    'Divine Liturgy - 9:30 AM (Sunday Before the Cross)',
+  ].join('\n');
+
+  const BARE_DAY = /^(sun|mon|tues?|wed(nes)?|thur?s?|fri|sat(ur)?)day\b.{0,24}$/i;
+
+  test('no cut of a schedule ends on raw asterisks or an empty day', () => {
+    const h = global.Slide.trimHelpers;
+    for (let n = 0; n <= WEEK_OF_SERVICES.length; n++) {
+      const cut = h.dropDanglingHeading(
+        h.balanceEmphasis(h.preferSentenceBoundary(h.cutAtWord(WEEK_OF_SERVICES, n))),
+        WEEK_OF_SERVICES);
+      const rendered = renderToDiv(cut);
+      const shown = rendered.textContent;
+      const lastBlock = rendered.lastElementChild;
+      const tail = lastBlock ? lastBlock.textContent.trim() : '';
+
+      assert(!/\*/.test(shown),
+        'cut at ' + n + ' left markup on the screen: ' + JSON.stringify(shown.slice(-50)));
+      assert(!(lastBlock && lastBlock.tagName === 'H3'),
+        'cut at ' + n + ' ends on a heading with nothing under it: ' + JSON.stringify(tail));
+      assert(!BARE_DAY.test(tail),
+        'cut at ' + n + ' ends on a day with no services under it: ' + JSON.stringify(tail));
+    }
+  });
+
+  function renderToDiv(body) {
+    const d = document.createElement('div');
+    d.innerHTML = global.Slide.renderBody(body);
+    return d;
+  }
+
   test('a slide that already fits is left alone', () => {
     const r = fitInBox({ title: 'One code', body: 'Short.', link: 'https://example.org',
       linkLabel: 'Scan' }, 1275, 1000);

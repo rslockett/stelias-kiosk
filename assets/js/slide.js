@@ -105,6 +105,11 @@
   // "Saturday", "Sunday, August 23", "Friday 10/16" — a day standing alone on
   // its line. The date part is spelled out rather than left open so that
   // "Sunday school resumes in September" stays the sentence it is.
+  // Just the day name, for spotting a heading the trim stopped partway
+  // through — where there is no date left to recognise it by.
+  const DAY_START =
+    /^(?:sun|mon|tues?|wed(?:nes)?|thur?s?|fri|sat(?:ur)?)(?:day)?\b/i;
+
   const DAY_LINE = new RegExp(
     '^(?:sun|mon|tues?|wed(?:nes)?|thur?s?|fri|sat(?:ur)?)(?:day)?' +
     '(?:\\s*,?\\s*(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\\.?' +
@@ -678,7 +683,8 @@
     // appending it afterwards makes the slide overflow again by exactly the
     // height of the line we forgot to account for.
     const render = n => {
-      const cut = dropDanglingHeading(preferSentenceBoundary(cutAtWord(full, n)));
+      const cut = dropDanglingHeading(
+        balanceEmphasis(preferSentenceBoundary(cutAtWord(full, n))), full);
       const suffix = /[.!?]$/.test(cut) || /\n\s*[-•*·]/.test(cut) ? '' : '…';
       bodyEl.innerHTML = renderBody(cut + suffix) + NOTICE;
     };
@@ -725,8 +731,49 @@
    * screen broke rather than that it ran out of room. Drop the orphan; the
    * "full details in the bulletin" line beneath says the rest is elsewhere.
    */
-  function dropDanglingHeading(cut) {
-    return cut.replace(/\n\s*#{2,4}\s+[^\n]*$/, '').trim();
+  function dropDanglingHeading(cut, full) {
+    const nl = cut.lastIndexOf('\n');
+    const last = cut.slice(nl + 1).trim();
+    const plain = last.replace(/^[*_#\s]+/, '').replace(/[*_#\s]+$/, '');
+
+    // Did the cut land inside this line, or did the line survive whole? Half
+    // a line is only ever wreckage; a whole one may still be worth showing.
+    const partial = full != null && cut.length < full.length &&
+      !full.split('\n').some(l => l.replace(/[*_#]/g, '').trim() === plain);
+
+    const dangling =
+      /^#{2,4}\s+/.test(last) ||                          // "## Sunday"
+      // "**Sunday, Sept. 6**" — the shape a schedule pasted out of the
+      // newsletter actually uses. Short, so that a paragraph opening on a
+      // bold phrase is not mistaken for a heading and thrown away.
+      (nl > -1 && /^\*\*/.test(last) && last.length <= 60) ||
+      // And a bare day line, whether or not anybody marked it up — including
+      // one whose asterisks the cut has already taken off.
+      (plain.length <= 42 && DAY_LINE.test(plain)) ||
+      // "Sunday, S" — a day heading the cut stopped partway through. Only
+      // when it is partial: "Sunday school resumes in September" is a whole
+      // line and a whole sentence, and stays.
+      (partial && plain.length <= 42 && DAY_START.test(plain));
+
+    return (dangling ? cut.slice(0, Math.max(nl, 0)) : cut).trim();
+  }
+
+  /**
+   * A cut lands wherever the words ran out, which can be halfway through a
+   * "**...**" span. An unpaired "**" isn't markup any renderer will match, so
+   * it survives to the screen as two literal asterisks. Drop the odd one out.
+   */
+  function balanceEmphasis(cut) {
+    return cut.split('\n').map(line => {
+      // A lone "*" first — the cut can land between the two of a "**", and an
+      // odd count is the only thing that says so. Then the unpaired "**",
+      // which is the ordinary case. A line whose markup is already balanced
+      // fails both tests and is left exactly as it was.
+      let out = (line.match(/\*/g) || []).length % 2
+        ? line.replace(/\*(?=[^*]*$)/, '') : line;
+      if ((out.match(/\*\*/g) || []).length % 2) out = out.replace(/\*\*(?=[^*]*$)/, '');
+      return out === line ? line : out.trim();
+    }).join('\n');
   }
 
   /* --------------------------------------------------------------- length -- */
@@ -753,6 +800,7 @@
     makeQrSvg,
     qrDensity,
     renderBody,
+    trimHelpers: { cutAtWord, preferSentenceBoundary, dropDanglingHeading, balanceEmphasis },
     hasStructure,
     escapeHtml,
     lengthVerdict,
