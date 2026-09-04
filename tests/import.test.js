@@ -368,6 +368,41 @@
     document.head.appendChild(stageCssEl);
   }
 
+  /*
+   * The rules above are stage geometry only — enough to hang a slide in a box
+   * of a known size. Anything measuring how *tall* words come out needs the
+   * parish's real typography, because that is what decides it: the line
+   * height, the space between paragraphs, and the column rules the fitter
+   * falls back on. Loaded from the stylesheet the TV uses rather than copied,
+   * so these checks cannot quietly drift away from what is on the wall.
+   *
+   * Scoped under .t-stage so the report page keeps its own plain styling; the
+   * kiosk's own selectors are all more specific than the bare element rules
+   * it also carries, which is why the scoping holds.
+   */
+  let kioskCssEl = null;
+  function ensureKioskCss() {
+    ensureStageCss();
+    if (kioskCssEl) return Promise.resolve();
+    return fetch('assets/css/kiosk.css')
+      .then(r => r.text())
+      .then(css => {
+        kioskCssEl = document.createElement('style');
+        kioskCssEl.textContent = scopeToStage(css);
+        document.head.appendChild(kioskCssEl);
+      });
+  }
+
+  function scopeToStage(css) {
+    return css.replace(/(^|\})([^@{}]+)\{/g, (whole, brace, selectors) => {
+      if (/^\s*$/.test(selectors) || /^\s*(from|to|\d)/.test(selectors)) return whole;
+      const scoped = selectors.split(',')
+        .map(sel => '.t-stage ' + sel.trim())
+        .join(', ');
+      return brace + scoped + '{';
+    });
+  }
+
   /** Put a slide in a stage of a given size, fit it, and measure the damage. */
   function fitInBox(slide, width, height) {
     ensureStageCss();
@@ -467,6 +502,79 @@
     d.innerHTML = global.Slide.renderBody(body);
     return d;
   }
+
+  /*
+   * A week of services is a dozen short lines down the middle of a screen
+   * twice as wide as they need. It used to be cut in half with a pointer to
+   * the bulletin; it is now set in two columns instead, and only cut if even
+   * that will not hold it.
+   */
+  /*
+   * The stage the announcements actually get: a 1920x1080 screen, less the
+   * topbar, the sign-up rail, the welcome band and the footer. Measured off
+   * index.html rather than guessed, because the whole question here is
+   * whether a week of services fits in it.
+   */
+  const STAGE_W = 1786, STAGE_H = 619;
+
+  function fitBodyInBox(slide, width, height) {
+    const box = document.createElement('div');
+    box.className = 't-stage';
+    box.style.cssText = 'width:' + width + 'px;height:' + height + 'px';
+    document.body.appendChild(box);
+
+    const el = global.Slide.buildSlideEl(slide);
+    box.appendChild(el);
+    const result = global.Slide.fitToBox(el.querySelector('.slide__main'),
+                                         el.querySelector('.slide__fit'),
+                                         { minPx: 26, maxPx: 62 });
+    const bodyEl = el.querySelector('.slide__body');
+    const out = {
+      result,
+      text: bodyEl.textContent,
+      groups: Array.from(el.querySelectorAll('.slide__group'))
+                   .map(g => g.textContent.trim()),
+    };
+    box.remove();
+    return out;
+  }
+
+  test('a week of services is set in columns rather than cut', async () => {
+    await ensureKioskCss();
+    const r = fitBodyInBox({ title: 'Services This Week', body: WEEK_OF_SERVICES },
+                           STAGE_W, STAGE_H);
+    assert(r.result.columns >= 2,
+      'the schedule was not divided into columns \u2014 it fitted in one at ' +
+      Math.round(r.result.px) + 'px, so this check is no longer testing anything');
+    assert(r.result.trimmed === false,
+      'the schedule was still cut short even in ' + r.result.columns + ' columns');
+
+    // Every day in the Sheet reaches the screen, which is the whole point.
+    ['Sept. 6', 'Sept. 7', 'Sept. 8', 'Sept. 9', 'Sept. 12', 'Sept. 13'].forEach(day => {
+      assert(r.text.indexOf(day) !== -1, day + ' never made it onto the slide');
+    });
+  });
+
+  test('a day and its services stay in the same column', async () => {
+    await ensureKioskCss();
+    const r = fitBodyInBox({ title: 'Services This Week', body: WEEK_OF_SERVICES },
+                           STAGE_W, STAGE_H);
+    assert(r.groups.length > 0, 'nothing was grouped, so nothing was holding the days together');
+    r.groups.forEach(g => {
+      assert(!BARE_DAY.test(g),
+        'a day heading was left as a group of its own \u2014 its services can now ' +
+        'fall into the next column: ' + JSON.stringify(g));
+    });
+  });
+
+  test('an ordinary announcement is not turned into a newspaper', async () => {
+    await ensureKioskCss();
+    const prose = 'Coffee hour follows the Divine Liturgy this Sunday in the hall. ' +
+      'Everyone is welcome, and there is no need to bring anything. ' +
+      'Please stay a while and meet somebody you have not met.';
+    const r = fitBodyInBox({ title: 'Coffee Hour', body: prose }, STAGE_W, STAGE_H);
+    assert(!r.result.columns, 'prose was split into columns, which reads as a newspaper');
+  });
 
   test('a slide that already fits is left alone', () => {
     const r = fitInBox({ title: 'One code', body: 'Short.', link: 'https://example.org',

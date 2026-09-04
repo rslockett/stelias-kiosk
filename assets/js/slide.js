@@ -642,20 +642,41 @@
     // would quietly under-report and let text run off the screen.
     const fits = () => fitEl.scrollHeight <= mainEl.clientHeight + 1;
 
-    let lo = lo0, hi = hi0, best = lo0;
+    // The largest size between the floor and the ceiling at which the words
+    // still fit, leaving the element set to it.
+    const search = () => {
+      fitEl.style.fontSize = hi0 + 'px';
+      if (fits()) return hi0;           // short announcement — use full size
 
-    fitEl.style.fontSize = hi + 'px';
-    if (fits()) {                       // short announcement — use full size
-      return { px: hi, trimmed: false };
+      let lo = lo0, hi = hi0, best = lo0;
+      for (let i = 0; i < 9; i++) {
+        const mid = (lo + hi) / 2;
+        fitEl.style.fontSize = mid + 'px';
+        if (fits()) { best = mid; lo = mid; } else { hi = mid; }
+      }
+      fitEl.style.fontSize = best + 'px';
+      return best;
+    };
+
+    let px = search();
+    let columns = 0;                    // how many it ended up in, 0 for one
+
+    // Out of room at the readability floor. Before cutting a single word,
+    // spend the empty half of the screen: a week of services is a dozen short
+    // lines running down the middle of a display twice as wide as they need.
+    if (!fits()) {
+      // Two first, three only if two was not enough — Holy Week is a long
+      // schedule by anybody's standards. Narrower columns wrap more, so more
+      // of them is not automatically better and each count is measured.
+      for (const count of [2, 3]) {
+        const undo = columnise(fitEl, count);
+        if (!undo) break;                // too narrow to divide any further
+        const divided = search();
+        if (fits()) { px = divided; columns = count; break; }
+        undo();
+        px = search();
+      }
     }
-
-    for (let i = 0; i < 9; i++) {
-      const mid = (lo + hi) / 2;
-      fitEl.style.fontSize = mid + 'px';
-      if (fits()) { best = mid; lo = mid; } else { hi = mid; }
-    }
-
-    fitEl.style.fontSize = best + 'px';
 
     // Still overflowing at the readability floor? Then the announcement is
     // genuinely too long for one screen. Trim it rather than render something
@@ -665,7 +686,68 @@
       trimmed = trimToFit(mainEl, fitEl, fits);
     }
 
-    return { px: best, trimmed };
+    return { px, trimmed, columns };
+  }
+
+  // A column narrower than this stops being a column and starts being a
+  // stack of wrapped fragments, which is worse than the trim it avoids.
+  const COLUMN_MIN_PX = 380;
+
+  /**
+   * Set a headed body — a schedule, most of the time — in `count` columns.
+   *
+   * Returns a function that puts it back, or null if the body is the wrong
+   * shape for it. Prose in two columns is a newspaper rather than an
+   * announcement, so this wants headed groups and enough of them to divide
+   * evenly; and each group is kept whole, because a day heading in one column
+   * with its services in the next is not a schedule anybody can read.
+   *
+   * The caller decides whether to keep the result: two columns of heavily
+   * wrapped lines can be taller than one column of unwrapped ones, and the
+   * only reliable way to know is to measure both.
+   */
+  function columnise(fitEl, count) {
+    const bodyEl = fitEl.querySelector('.slide__body');
+    if (!bodyEl || bodyEl.classList.contains('slide__body--columns')) return null;
+    if (fitEl.clientWidth / count < COLUMN_MIN_PX) return null;
+
+    const groups = [];
+    let headed = 0;
+    for (const child of Array.from(bodyEl.children)) {
+      if (isHeadingEl(child)) { groups.push([child]); headed++; }
+      else if (groups.length) groups[groups.length - 1].push(child);
+      else groups.push([child]);
+    }
+    // Fewer groups than columns leaves an empty one, and only just as many
+    // leaves a column per day, which is a table, not a schedule.
+    if (headed < 3 || groups.length < count * 2) return null;
+
+    const before = bodyEl.innerHTML;
+    bodyEl.replaceChildren(...groups.map(nodes => {
+      const section = document.createElement('section');
+      section.className = 'slide__group';
+      section.append(...nodes);
+      return section;
+    }));
+    bodyEl.classList.add('slide__body--columns');
+    bodyEl.style.columnCount = count;
+
+    return () => {
+      bodyEl.classList.remove('slide__body--columns');
+      bodyEl.style.columnCount = '';
+      bodyEl.innerHTML = before;
+    };
+  }
+
+  /**
+   * A day heading, however it was written: "## Sunday" became an h3, and
+   * "**Sunday, Sept. 6**" is a paragraph that is nothing but its own bold.
+   */
+  function isHeadingEl(el) {
+    if (el.classList && el.classList.contains('slide__sub')) return true;
+    return el.tagName === 'P' && el.children.length === 1 &&
+           el.firstElementChild.tagName === 'STRONG' &&
+           el.textContent.trim() === el.firstElementChild.textContent.trim();
   }
 
   /**

@@ -421,6 +421,36 @@ body::after {
   background: var(--gold-deep);
 }
 
+/* A schedule set in two columns, because it would not otherwise fit on one
+   slide at a size anybody could read. Reached only from fitToBox in slide.js,
+   and only after one column has been tried and found too tall — every
+   announcement that already fits is left exactly as it was.
+
+   The leading and the gaps between lines tighten here as well. A day and its
+   services are a group of three or four short lines, and paragraph spacing
+   sized for prose puts as much air between "Orthros" and "Divine Liturgy" as
+   between one day and the next. The space that matters is the one *between
+   days*, which is why that is the one kept. */
+.slide__body--columns {
+  display: block;
+  width: 100%;
+  column-count: 2;
+  column-gap: 3em;
+  line-height: 1.25;
+}
+.slide__body--columns p { margin: 0 0 0.1em; }
+.slide__body--columns .slide__sub { margin-top: 0; }
+
+/* Keeping each day whole is the whole point: a heading stranded at the foot
+   of one column with its services at the head of the next reads as two
+   different days, and somebody misses a service over it. */
+.slide__group {
+  break-inside: avoid;
+  -webkit-column-break-inside: avoid;
+  margin: 0 0 0.7em;
+}
+.slide__group:last-child { margin-bottom: 0; }
+
 /* A sub-heading inside one announcement — a day in a service schedule, a
    section in a longer notice. Set in the sans face so it reads as a label
    against the Garamond body rather than as another sentence, and given far
