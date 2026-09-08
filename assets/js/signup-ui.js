@@ -120,6 +120,20 @@
 
   /* ------------------------------------------------------------ fetching -- */
 
+  // The rows behind whatever is currently on screen, and the day it was
+  // drawn for. Kept so a rollover past midnight can redraw the Sundays from
+  // what we already have when the network is down — the same thing the
+  // kiosk's rail does, so a phone and the television never disagree about
+  // which Sunday is next.
+  let lastRows = null;
+  let lastDayKey = null;
+
+  function slotsFrom(rows) {
+    lastRows = rows;
+    lastDayKey = window.SignupData.dateKey(new Date());
+    return window.SignupData.buildSlots(rows, CFG.signupWeeksAhead || 6, { markFasting: type.markFasting });
+  }
+
   async function fetchSlots() {
     // Deck.fetchCsv rather than a bare fetch: it retries the intermittent
     // "web page instead of CSV" response Google's publish endpoint sometimes
@@ -127,8 +141,7 @@
     // fetch here is exactly what put "Could not load the sign-up sheet" in
     // front of someone scanning a QR code that was never actually broken.
     const text = await window.Deck.fetchCsv(type.csvUrl);
-    const rows = window.CSV.parseObjects(text);
-    return window.SignupData.buildSlots(rows, CFG.signupWeeksAhead || 6, { markFasting: type.markFasting });
+    return slotsFrom(window.CSV.parseObjects(text));
   }
 
   /* -------------------------------------------------------------- render -- */
@@ -282,6 +295,14 @@
     } catch (e) {
       if (!lastSlots.length) {
         showNotice('Could not load the sign-up sheet. Check your connection and reload.', 'error');
+      } else if (lastRows && window.SignupData.dateKey(new Date()) !== lastDayKey) {
+        // Still offline, but the day has turned. Redraw from the rows we
+        // already have rather than leaving a Sunday that has been and gone
+        // at the top of the list.
+        const slots = slotsFrom(lastRows);
+        reconcile(slots);
+        lastSlots = slots;
+        if (openDate === null) render(lastSlots);
       }
     }
   }
