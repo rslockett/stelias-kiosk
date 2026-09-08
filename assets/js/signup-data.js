@@ -110,6 +110,14 @@
   function createKioskSource(opts) {
     const listeners = [];
     let lastHash = null;
+    // The CSV is not the only thing that can change what this card should
+    // say: so can the calendar. A kiosk left running from Saturday to Monday
+    // is fetching the same unchanged sheet the whole time, so hashing the
+    // CSV alone would leave yesterday's Sunday sitting at the top of the
+    // list. Remember which day the current card was built for, and rebuild
+    // when that day rolls over even though the sheet hasn't moved.
+    let lastDayKey = null;
+    let lastText = null;
 
     if (!opts.csvUrl) {
       return {
@@ -142,6 +150,17 @@
       };
     }
 
+    function today() {
+      return dateKey(new Date());
+    }
+
+    function emit(text) {
+      lastHash = global.Deck.hash(text);
+      lastText = text;
+      lastDayKey = today();
+      listeners.forEach(fn => fn(toCard(global.CSV.parseObjects(text))));
+    }
+
     async function refresh() {
       try {
         // Deck.fetchCsv rather than a bare fetch: it retries the intermittent
@@ -151,19 +170,19 @@
         const text = await global.Deck.fetchCsv(opts.csvUrl);
 
         saveCache(opts.kind, text);
-        const h = global.Deck.hash(text);
-        if (h === lastHash) return;
-        lastHash = h;
-        listeners.forEach(fn => fn(toCard(global.CSV.parseObjects(text))));
+        if (global.Deck.hash(text) === lastHash && today() === lastDayKey) return;
+        emit(text);
       } catch (err) {
         console.warn('[kiosk] could not reach the ' + opts.title + ' sheet:', err.message);
-        if (lastHash === null) {
-          const cached = loadCache(opts.kind);
-          if (cached && cached.csv) {
-            lastHash = global.Deck.hash(cached.csv);
-            listeners.forEach(fn => fn(toCard(global.CSV.parseObjects(cached.csv))));
-          }
+        if (lastText !== null) {
+          // Offline, but the day may still have turned over. Redraw the
+          // Sundays from what we already have rather than leaving a Sunday
+          // that has been and gone at the top of the list.
+          if (today() !== lastDayKey) emit(lastText);
+          return;
         }
+        const cached = loadCache(opts.kind);
+        if (cached && cached.csv) emit(cached.csv);
       }
     }
 
