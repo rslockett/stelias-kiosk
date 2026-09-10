@@ -113,6 +113,26 @@ button, input { font: inherit; color: inherit; }
   gap: 0.7rem;
 }
 
+/* A month heading standing in the list of Sundays, so half a year of them
+   can be scanned rather than counted. Sticks to the top of the viewport
+   while its own month is on screen, so a long scroll never leaves you
+   wondering which month you are looking at. */
+.slots__month {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  margin: 0.6rem 0 -0.1rem;
+  padding: 0.35rem 0.1rem;
+  background: var(--cream);
+  font-family: 'Montserrat', system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 0.78rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--oxblood);
+}
+.slots__month:first-child { margin-top: 0; }
+
 .slot {
   padding: 0.9rem 1rem;
   border-radius: 8px;

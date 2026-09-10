@@ -131,7 +131,11 @@
   function slotsFrom(rows) {
     lastRows = rows;
     lastDayKey = window.SignupData.dateKey(new Date());
-    return window.SignupData.buildSlots(rows, CFG.signupWeeksAhead || 6, { markFasting: type.markFasting });
+    // The page lists much further out than the TV does: the hall screen has
+    // room for the next few weeks, but somebody standing there with a phone
+    // may already know they want a Sunday months from now.
+    const weeks = CFG.signupPageWeeksAhead || CFG.signupWeeksAhead || 26;
+    return window.SignupData.buildSlots(rows, weeks, { markFasting: type.markFasting });
   }
 
   async function fetchSlots() {
@@ -150,8 +154,32 @@
   // refresh doesn't yank the form shut out from under someone mid-type.
   let openDate = null;
 
+  // Half a year of Sundays is a long scroll, so break it up: a month
+  // heading wherever the month changes, which gives someone hunting for
+  // "sometime in March" something to scan for rather than 26 near-identical
+  // rows. The headings are list items of their own so the <ul> stays valid.
+  const thisYear = new Date().getFullYear();
+
+  function monthLabel(date) {
+    return date.getFullYear() === thisYear
+      ? date.toLocaleDateString([], { month: 'long' })
+      : date.toLocaleDateString([], { month: 'long', year: 'numeric' });
+  }
+
   function render(slots) {
-    listEl.innerHTML = slots.map(slotHtml).join('');
+    let shownMonth = null;
+    const html = [];
+
+    for (const slot of slots) {
+      const month = slot.date.getFullYear() + '-' + slot.date.getMonth();
+      if (month !== shownMonth) {
+        shownMonth = month;
+        html.push('<li class="slots__month">' + esc(monthLabel(slot.date)) + '</li>');
+      }
+      html.push(slotHtml(slot));
+    }
+
+    listEl.innerHTML = html.join('');
     slots.forEach(wireSlot);
   }
 

@@ -183,12 +183,18 @@ window.KIOSK_CONFIG = {
   siteUrl: 'https://rslockett.github.io/stelias-kiosk/',
 
 
-  // How many upcoming Sundays to show, both on the TV and on signup.html.
-  // (The sign-up column on the TV only ever shows the first 6 of these,
-  // however high this is set — see RAIL_ROW_CAP in signup-data.js. Six is
-  // what fits beside the announcements at 1080p, with the code still large
-  // enough to scan.)
+  // How many upcoming Sundays the sign-up column on the TV lists. Six is
+  // what fits beside the announcements at 1080p with the code still large
+  // enough to scan, and the column is hard-capped there regardless — see
+  // RAIL_ROW_CAP in signup-data.js.
   signupWeeksAhead: 6,
+
+  // How many upcoming Sundays the page behind the QR code lists. The screen
+  // in the hall has room for the next few weeks; a phone can scroll, and
+  // somebody who already knows they want a Sunday in the spring should be
+  // able to claim it without waiting for it to come into range. 26 Sundays
+  // is roughly six months.
+  signupPageWeeksAhead: 26,
 
 
   /* --------------------------------------------------------------------------
